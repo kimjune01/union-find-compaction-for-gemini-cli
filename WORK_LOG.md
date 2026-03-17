@@ -182,8 +182,58 @@ This baseline establishes the "before" state for transformation.
 
 **Commit:** eef98e2
 
+### Target Audience: Gemini 3 Pro Users (16:10)
+
+**Critical context:** We are primarily interested in Gemini 3 Pro users, not Flash/Flash Lite.
+
+**Why this matters:**
+- Gemini 3 Pro users value quality over cost (already paying premium)
+- Longer, more complex conversations (detail preservation critical)
+- More sensitive to compression quality and blocking UX
+- 2x LLM calls is acceptable cost (already using expensive model)
+
+**Reference experiment mapping:**
+- Sonnet (better model) results apply: 70% flat → 78% union-find
+- 8pp improvement even with capable model
+- Pro users get strict improvement: non-blocking UX + better recall + provenance
+
+**Compression model routing:**
+- Main: `gemini-3-pro`
+- Current compression: `chat-compression-3-pro`
+- Union-find clusters: Same `chat-compression-3-pro` (quality matters for Pro users)
+
+### Updated Plan: Step 8 Iterative Approach (16:12)
+
+**Original plan:** Step 8 was "apply diff prose to gemini-cli, if doesn't one-shot go back and improve"
+
+**New plan - Step 8 becomes iterative test-driven cycle:**
+
+```
+Step 8: Iterative Implementation
+├─ 8.1: Set up test harness
+│   └─ Define success criteria (tests that verify behavior)
+├─ 8.2: Spike implementation
+│   └─ Apply transformation prose to codebase
+├─ 8.3: Tests pass?
+│   ├─ YES → 8.4: Performance experiment on real conversations
+│   └─ NO → 8.5: Learning loop
+│       ├─ Extract the diff (what went wrong?)
+│       ├─ Modify prose based on learnings
+│       ├─ Reset spike
+│       └─ Try again (back to 8.2)
+```
+
+**Rationale:** Step 8 is the most uncertain. Iterative approach:
+- Validates prose through implementation feedback
+- Captures learnings in prose refinements
+- Each iteration improves specification quality
+- Blog post documents the iteration, not just final state
+
 ### Next Steps
 - [ ] Step 5: Create transformation prose (before → after with migration path)
+- [ ] Step 6: Sharpen conflicts and complexity at prose level
+- [ ] Step 7: Publish blog post + repo with process documentation
+- [ ] Step 8: Iterative implementation (test harness → spike → learn → refine)
 - [ ] Step 4: Combine with union-find prose from reference
 - [ ] Step 5: Create transformation prose (before → after)
 - [ ] Step 6: Sharpen conflicts and complexity
