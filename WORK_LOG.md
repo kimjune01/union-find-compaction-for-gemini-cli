@@ -229,8 +229,54 @@ Step 8: Iterative Implementation
 - Each iteration improves specification quality
 - Blog post documents the iteration, not just final state
 
+### Step 5: Transformation Design Complete (16:15-16:30)
+**File:** `transformation-design.md` (21KB, 759 lines)
+
+**Comprehensive specification covering:**
+
+**Architecture (what changes):**
+- New classes: ContextWindow, Forest, Message, ClusterSummarizer, EmbeddingService
+- Modified: ChatCompressionService with feature flag dual-path
+- TypeScript ports from Python reference implementation
+
+**What stays:**
+- Tool output truncation (applied before graduation)
+- Model routing system (chat-compression-3-pro for Pro users)
+- Hook system (fires on merge events)
+- Compression threshold config (reinterpreted as hot zone size)
+
+**Answers to all 6 open questions:**
+1. Tool outputs → truncate before graduation (keeps existing logic)
+2. Two-phase verification → removed for clusters (single-phase sufficient for small summaries)
+3. Migration → feature flag, dual implementation, Option A (new conversations only) for spike
+4. Embeddings → TF-IDF initial (cheap iteration), dense if recall suffers
+5. Thresholds → reference defaults (hot=20, clusters=10, threshold=0.15), tune later
+6. Model routing → reuse existing chat-compression aliases
+
+**Migration path:**
+- Phase 1: Dual implementation with feature flag
+- Phase 2: New conversations use union-find, existing stay flat
+- Phase 3: Opt-in migration for existing
+- Phase 4: Full migration with snapshot parsing
+
+**Testing strategy (4 levels):**
+1. Unit tests (correctness): find, union, path compression, nearest, expand
+2. Integration tests (behavior): backward compat, hooks, tool truncation
+3. Quality tests (recall): replicate reference experiment with planted facts
+4. Performance tests (UX + cost): non-blocking, token count within 2x
+
+**Success criteria for spike:**
+- ✅ All tests pass
+- ✅ Recall >= 5pp better than flat
+- ✅ Append latency < 100ms (non-blocking)
+- ✅ Total cost within 2x of flat
+
+**Commit:** c876115
+
+**This is the initial spec for Step 8 implementation iteration.**
+
 ### Next Steps
-- [ ] Step 5: Create transformation prose (before → after with migration path)
+- [ ] Step 6: Sharpen conflicts and complexity at prose level
 - [ ] Step 6: Sharpen conflicts and complexity at prose level
 - [ ] Step 7: Publish blog post + repo with process documentation
 - [ ] Step 8: Iterative implementation (test harness → spike → learn → refine)
