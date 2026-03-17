@@ -316,9 +316,26 @@ Elicited key concern: Credibility + avoiding offense (outsider doing better/fast
 
 **Hook:** Intrigue - "See if prose-driven development actually works" (works with Gemini 3 Pro)
 
+### README Created (16:40)
+**File:** `README.md` (6.5KB)
+
+**Structure addresses reviewer concerns:**
+
+1. **Value prop** - Non-blocking UX, 8pp recall improvement, comparable cost
+2. **Respect** - Builds on existing, backward compatible, feature flag, safe
+3. **Invitation** - Try with Gemini 3 Pro, verify one-shot claim
+4. **Navigation table** - Self-service review at arbitrary abstraction (9 levels)
+5. **Approach** - Prose-driven vs traditional refactoring
+6. **Architecture** - Quick visual comparison (flat vs union-find)
+
+**Hook:** "Can prose specification actually one-shot a complex implementation?"
+
+**Commits:** 840b061 (cost model), 6d949f4 (README)
+
 ### Next Steps
-- [ ] Update systems-comparison.md cost section with revised understanding
 - [ ] Step 6: Sharpen conflicts and complexity at prose level
+- [ ] Create REPRODUCE.md (how to verify one-shot with Gemini 3 Pro)
+- [ ] Create performance-analysis.md (recall experiments, metrics)
 - [ ] Step 6: Sharpen conflicts and complexity at prose level
 - [ ] Step 7: Publish blog post + repo with process documentation
 - [ ] Step 8: Iterative implementation (test harness → spike → learn → refine)
