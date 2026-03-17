@@ -116,6 +116,11 @@ This baseline establishes the "before" state for transformation.
 
 **Framing:** User-facing problems observed in production, not theoretical comparisons
 
+### Git Repository Created (15:57)
+- **Repo:** https://github.com/kimjune01/union-find-compaction-for-gemini-cli
+- **Initial commit:** 6a83923 - Current system documentation (4 files, 673 insertions)
+- **Strategy:** Commit often throughout development
+
 ### Next Steps (pending review)
 - [ ] Step 4: Combine current-system prose with union-find reference prose
 - [ ] Step 4: Combine with union-find prose from reference
