@@ -128,7 +128,42 @@ This baseline establishes the "before" state for transformation.
   - Abandoned approaches, debugging dead ends clutter attention
   - Model must wade through irrelevant history to find current signal
 
-### Next Steps (pending review)
+### Research: Similar Workflows (15:58-16:05)
+**Question:** Is anyone else using this workflow for production systems?
+
+**Findings:**
+
+**Related approaches exist:**
+1. **Spec-Driven Development (SDD)** - Emerging 2025-2026
+   - Specifications as source of truth for AI-assisted development
+   - Applied to brownfield refactoring (Thoughtworks, enterprise adoption)
+   - Workflow: Specify → Plan → Decompose → Implement → Validate
+   - Status: "Emerging practice, even more change expected in 2026"
+
+2. **LLM-Driven Refactoring** - Active research 2025
+   - Multi-agent systems with validation pipelines
+   - Automated test + static analysis verification
+   - Known issue: LLM hallucinations in refactored code
+
+3. **Literate Programming Renaissance** - Research 2024-2025
+   - LLMs generate code from natural language outlines
+   - Lacks production tooling, still research-stage
+
+**Novel aspects of our workflow:**
+- ✅ Document current system in prose FIRST (baseline)
+- ✅ Verify prose ↔ code equivalence (no-delta checkpoint)
+- ✅ Bidirectional validation at each step
+- ❌ **Not found elsewhere**: "verify current system prose first" checkpoint
+
+**Assessment:**
+- Each component has precedent (SDD, validation, refactoring)
+- The combination is novel - nobody doing exactly this
+- Treating as **research/exploration**, not proven playbook
+- Blog post shifts to "what we learned trying" not "how to do it"
+
+**Sources:** Thoughtworks, ICSE 2025, arXiv literate programming papers
+
+### Next Steps
 - [ ] Step 4: Combine current-system prose with union-find reference prose
 - [ ] Step 4: Combine with union-find prose from reference
 - [ ] Step 5: Create transformation prose (before → after)
