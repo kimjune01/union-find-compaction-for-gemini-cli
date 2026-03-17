@@ -275,7 +275,49 @@ Step 8: Iterative Implementation
 
 **This is the initial spec for Step 8 implementation iteration.**
 
+### Cost Model Refinement (16:35)
+
+**Speculation based on double-pass realization:**
+
+**Current assumption:** Union-find is 2x cost because more LLM calls
+- Flat: 2 calls per event
+- Union-find: ~10 calls per 200 messages
+
+**Revised understanding:** Cost is actually comparable, not 2x, because:
+
+1. **Flat already does double-pass:** Generate (190 messages) + Verify (190 messages) = ~380 message-equivalents
+2. **Union-find is single-pass per cluster:** 10 calls × 20-40 messages = ~200-400 message-equivalents
+3. **No verification overhead:** Clusters small enough to trust single-pass summarization
+4. **Amortized over time:** Spread across many appends, not one blocking event
+
+**Updated framing:**
+- ❌ NOT "2x more expensive, but worth it for quality"
+- ✅ "Comparable cost, better UX and recall"
+
+**To verify in spike:** Measure actual token counts (input + output) for both strategies
+
+### Navigation Table Design (16:35)
+
+**For gemini-cli code reviewers:**
+
+Elicited key concern: Credibility + avoiding offense (outsider doing better/faster work)
+
+**Solution:** Self-service navigation at arbitrary abstraction levels
+- Executive summary → README
+- Code review → PR
+- Spec review → transformation-design.md
+- Why/architecture → systems-comparison.md
+- Process → WORK_LOG.md
+- Performance → performance-analysis.md
+- Testing → transformation-design.md §Testing
+- Migration → transformation-design.md §Migration
+- Cost → systems-comparison.md §Cost Model
+- Try it yourself → REPRODUCE.md
+
+**Hook:** Intrigue - "See if prose-driven development actually works" (works with Gemini 3 Pro)
+
 ### Next Steps
+- [ ] Update systems-comparison.md cost section with revised understanding
 - [ ] Step 6: Sharpen conflicts and complexity at prose level
 - [ ] Step 6: Sharpen conflicts and complexity at prose level
 - [ ] Step 7: Publish blog post + repo with process documentation
