@@ -163,8 +163,27 @@ This baseline establishes the "before" state for transformation.
 
 **Sources:** Thoughtworks, ICSE 2025, arXiv literate programming papers
 
+### Step 4: Systems Comparison (16:05-16:10)
+**File:** `systems-comparison.md` (13KB, 327 lines)
+
+**Comprehensive comparison covering:**
+- Architectural differences (flat snapshot vs union-find forest)
+- Behavioral differences (blocking vs incremental, lossy vs expandable)
+- User-facing differences (UX interruption, detail loss, searchability)
+- Cost model (2 calls per event vs 1 per merge)
+- Performance characteristics (time/space complexity)
+- Trade-offs table (complexity, UX, recall, cost, provenance)
+- When each system wins (conversation length, detail needs, UX requirements)
+
+**Key insights:**
+- Flat optimizes for: simplicity, robustness, token efficiency, cost
+- Union-find optimizes for: detail preservation, non-blocking UX, expandability, provenance
+- Open questions identified: tool output handling, two-phase verification replacement, migration, embeddings, tuning
+
+**Commit:** eef98e2
+
 ### Next Steps
-- [ ] Step 4: Combine current-system prose with union-find reference prose
+- [ ] Step 5: Create transformation prose (before → after with migration path)
 - [ ] Step 4: Combine with union-find prose from reference
 - [ ] Step 5: Create transformation prose (before → after)
 - [ ] Step 6: Sharpen conflicts and complexity
