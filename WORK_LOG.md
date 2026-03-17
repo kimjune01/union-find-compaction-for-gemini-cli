@@ -121,6 +121,13 @@ This baseline establishes the "before" state for transformation.
 - **Initial commit:** 6a83923 - Current system documentation (4 files, 673 insertions)
 - **Strategy:** Commit often throughout development
 
+### Revision: Add Context Rot Motivation (15:58)
+- **Commit:** c69e0fe
+- **Added:** Context rot (old irrelevant history degrading performance) alongside token exhaustion
+- **Explains:** Why compression needed even within token limits
+  - Abandoned approaches, debugging dead ends clutter attention
+  - Model must wade through irrelevant history to find current signal
+
 ### Next Steps (pending review)
 - [ ] Step 4: Combine current-system prose with union-find reference prose
 - [ ] Step 4: Combine with union-find prose from reference
