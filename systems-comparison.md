@@ -117,21 +117,33 @@ Both systems use context compaction to solve these problems—but with fundament
 ### Cost Model
 
 **Flat:**
-- 2 LLM calls per compression event
+- 2 LLM calls per compression event (generate + verify)
 - Compression events are infrequent (trigger at 50% of limit)
 - Uses cheaper models (Flash Lite) for summarization
 - Typical: compress every ~100 messages
 
 **Union-Find:**
-- 1 LLM call per cluster merge
+- 1 LLM call per cluster merge (no verification step)
 - Merges happen incrementally on graduation
 - Multiple small summarization tasks vs one large task
 - Typical: 1 merge per 20 graduations (with 10-cluster cap)
 
 **Cost comparison for 200-message conversation:**
-- Flat: ~2-3 compression events × 2 calls = 4-6 LLM calls
-- Union-Find: ~10 merges × 1 call = 10 LLM calls
-- Union-Find is 2x more LLM calls, but each summarizes ~20 messages vs 190
+
+**Flat:** ~2-3 compression events × 2 calls (generate + verify)
+- Generate: 190 messages input
+- Verify: 190 messages + generated summary input
+- **Total: ~380 message-equivalents** per compression event
+
+**Union-Find:** ~10 merges × 1 call (no verification)
+- Each merge: 20-40 messages input
+- **Total: ~200-400 message-equivalents** amortized over graduations
+
+**Conclusion: Comparable total cost**, not 2x expensive:
+- Union-find removes expensive verification step
+- Smaller context per call (20-40 vs 190 messages)
+- Amortized over time (non-blocking, incremental)
+- Same or lower total token consumption
 
 ## User-Facing Differences
 
