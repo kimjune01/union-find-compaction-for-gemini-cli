@@ -4,7 +4,13 @@ This document describes how gemini-cli currently handles context window manageme
 
 ## The Problem
 
-Chat conversations grow without bound. Each user message, model response, and tool result consumes tokens. When the accumulated history approaches the model's token limit, the system must reduce context size or fail. Gemini-cli solves this through **context compression**: summarizing old history into a compact form that preserves meaning while freeing tokens for new turns.
+Chat conversations grow without bound. Each user message, model response, and tool result consumes tokens. This creates two compounding problems:
+
+**Token exhaustion:** When the accumulated history approaches the model's token limit, the system must reduce context size or fail. Without compression, conversations would hit hard limits after a few hundred exchanges.
+
+**Context rot:** Even within token limits, old irrelevant history degrades model performance. Early exploratory exchanges, abandoned approaches, debugging dead ends, and superseded decisions clutter the context window. The model must wade through hundreds of messages to find what's currently relevant. Attention is finite—irrelevant history competes with signal. A conversation that started with "let's explore authentication options" and is now deep in implementing WebAuthn shouldn't force the model to process the discarded OAuth discussion from an hour ago.
+
+Gemini-cli solves both problems through **context compression**: summarizing old history into a compact form that preserves meaning while freeing tokens for new turns and removing obsolete exploratory context.
 
 ## When Compression Triggers
 
