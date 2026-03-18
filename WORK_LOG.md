@@ -982,3 +982,40 @@ Updated the transformation spec to reflect all three v2 architectural changes:
 7. **Removed all ⚠️ v1 warnings** — the bugs they warned about are now addressed in the design itself. Added "v1 bug context" notes explaining what changed.
 
 8. **Embedder interface:** Fixed `Promise<number[]>` → `number[]` to match TF-IDF (synchronous local computation).
+
+### Overlap Window Design (v2 evolution)
+
+**Problem with blocking render:** Analysis showed that blocking `render()` (resolving dirty clusters before returning) would add ~135s total wait across a 45-turn conversation — worse than flat's ~40s. Deferred summarization at render time merely relocated the latency problem, not eliminated it.
+
+**Solution — overlap window with fire-and-forget `resolveDirty()`:**
+- Two thresholds: `graduateAt=26` (start inserting into tree) and `evictAt=30` (remove from hot zone)
+- Messages exist in BOTH hot zone and cold tree for ~2 turns (overlap window)
+- `render()` is now synchronous — returns cached summaries + hot zone verbatim. No LLM calls.
+- `resolveDirty()` is async fire-and-forget — runs during main LLM call wait (5-30s). Batch-summarizes dirty clusters.
+- By the time a message evicts from hot, background `resolveDirty()` has already resolved its cluster.
+
+**Result: zero blocking, zero staleness.**
+- `append()`: <1ms (structural)
+- `render()`: <1ms (cached summaries, overlap covers freshness)
+- `resolveDirty()`: runs in background during main LLM wait
+
+**Design evolution summary:**
+1. v1: sync `union()` with LLM call on every merge (blocking, O(n²) cost)
+2. v2 draft 1: defer LLM to `render()` time (blocking render, still slow)
+3. v2 draft 2: overlap window + fire-and-forget `resolveDirty()` (zero blocking, zero staleness)
+
+### PREREGISTRATION-V2 Updated for Overlap Window
+
+Updated lines 42-65 to match overlap design:
+- v2 architectural changes now list 5 points (union sync, append sync, render sync, resolveDirty async, overlap window)
+- Operational spec rewritten for overlap model
+- H2a now covers both append AND render (both synchronous)
+- H2b now measures `resolveDirty()` latency (background LLM work)
+- H3 cost counting references `resolveDirty()` not `render()`
+- Tuning policy updated with `graduateAt`/`evictAt` parameters
+
+### Cleanup: stale tasks
+
+Deleted stale tasks #1-#3 (predated overlap design). Created fresh tasks #4-#7 for v2 implementation.
+
+### v2 TDD Implementation Started

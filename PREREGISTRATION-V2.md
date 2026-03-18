@@ -40,29 +40,33 @@ Four exploratory hypotheses (H1-H4) test the code improvements. Results are repo
 **Baseline:** Flat compression rerun contemporaneously in same environment (not reusing v1 flat results)
 
 **v2 architectural changes (vs v1):**
-1. `Forest.union()` is synchronous — structural merge only (parent pointers, children, centroids), no LLM calls. Marks merged cluster as `_dirty`.
+1. `Forest.union()` is synchronous — structural merge only (parent pointers, children, centroids), no LLM calls. Tracks `_newMembers` per cluster root.
 2. `ContextWindow.append()` is synchronous — no LLM calls. Graduation triggers structural `union()` only.
-3. `render()` resolves dirty clusters via **batch summarization** — one LLM call per dirty cluster, not one per merge. This addresses the over-merging problem (v1: 80 merges → 80 LLM calls; v2: 80 structural merges → ~10 LLM calls at render time).
+3. `render()` is synchronous — returns cached summaries + hot zone messages. No LLM calls.
+4. `resolveDirty()` is async fire-and-forget — batch-summarizes dirty clusters in background during main LLM call wait. One LLM call per dirty cluster, not one per merge.
+5. **Overlap window** (`graduateAt`/`evictAt`): graduated messages stay in hot zone for ~2 turns. Background `resolveDirty()` runs during main LLM call (5-30s). By the time a message evicts from hot, its cluster summary is fresh. Zero blocking, zero staleness.
 
-**Deferred batch summarization operational spec:**
-- `union()` is synchronous: structural merge only. Marks merged cluster as `_dirty`. Tracks which members are new since the last clean summary.
+**Overlap window operational spec:**
+- `append()` is synchronous: embeds (local TF-IDF), pushes to hot, graduates if hot exceeds `graduateAt`. Graduated messages stay in hot (overlap window). Evicts from hot when hot exceeds `evictAt`.
+- `_graduate()` is synchronous: inserts into forest, finds nearest cluster, structural `union()` if similar enough, enforces hard cap. No LLM calls.
+- `union()` is synchronous: merges parent pointers, children, centroids. Accumulates `_newMembers` (members added since last clean summary). No LLM calls.
+- `render()` is synchronous: returns cold cluster summaries (cached) + hot zone messages (verbatim). Overlap window ensures graduated messages still appear verbatim from hot.
+- `resolveDirty()` is async: for each cluster root with non-empty `_newMembers`, makes **one** `summarizer.summarize([clean_summary, ...new_raw_messages])` call. Clears `_newMembers`, updates cached summary. Called after `render()`, runs during main LLM call wait.
 - For singletons (no prior summary), the raw message content is the "summary."
-- `render()` resolves all dirty clusters before returning. For each dirty root:
-  - Collects the cluster's **last clean summary** (if any) plus **all raw messages added since that summary was generated**
-  - Makes **one** `summarizer.summarize([clean_summary, ...new_raw_messages])` call
-  - Each raw message appears in exactly one summarization call → O(n) total cost
-  - This handles both singleton absorption and cluster-to-cluster merges in one batch
-- Multiple structural merges between renders are batched. One render resolves all pending dirty clusters.
-- No stale summaries in rendered output: `render()` always returns fully-resolved summaries.
-- No concurrent append/render: sequential single-threaded execution assumed (matches v1 and gemini-cli architecture).
+- Each raw message appears in exactly one summarization call → O(n) total cost.
+- Multiple structural merges between `resolveDirty()` calls are batched.
+- No concurrent append/resolveDirty: sequential single-threaded execution assumed (matches v1 and gemini-cli architecture).
+
+**Why overlap, not blocking render:**
+v1 analysis showed blocking render would add ~135s total wait across a 45-turn conversation (worse than flat's ~40s). The overlap window eliminates this: `render()` returns instantly using cached summaries, while `resolveDirty()` runs in background during the 5-30s main LLM call. By the time a message evicts from hot, its cluster summary is fresh.
 
 **Why batch, not pairwise replay:**
-v1 hit 80 merges for 120 messages (every graduation after msg 40 triggers a merge due to hard cap). Pairwise replay at render time would still produce 80 LLM calls. Batch summarization produces ~10 calls (one per dirty cluster). The structural merges are free — only the final summary matters.
+v1 hit 80 merges for 120 messages (every graduation after msg 40 triggers a merge due to hard cap). Pairwise replay would still produce 80 LLM calls. Batch summarization produces ~10 calls (one per dirty cluster). The structural merges are free — only the final summary matters.
 
-**Render protocol (frozen for H2/H3/H4 measurement):**
-- `render()` is called once after all messages are appended (end-of-conversation render).
-- This matches gemini-cli's usage pattern: messages accumulate, then context is rendered for the next LLM call.
-- Cost (H3) counts all tokens from all LLM calls across the full conversation lifecycle (appends + render).
+**Measurement protocol (frozen for H2/H3/H4):**
+- For each conversation: append all messages, then call `render()` + `resolveDirty()` at end of conversation.
+- This matches gemini-cli's usage pattern: messages accumulate, context is rendered for the next LLM call, `resolveDirty()` runs during model response.
+- Cost (H3) counts all tokens from all LLM calls across the full conversation lifecycle (appends should be zero, `resolveDirty()` carries all cost).
 
 **Limitations:**
 - **Exploratory, not confirmatory** — data-informed redesign on reused benchmark
@@ -90,33 +94,33 @@ Union-find v2 recall on the 12 reused coding conversations.
 
 **Sensitivity analysis:** Report conversation-level sign test (12 paired proportions) as secondary check on McNemar.
 
-### H2a: Append Latency
+### H2a: Append + Render Latency
 
-Union-find v2 append latency p95 < 100ms.
+Union-find v2 append and render latency p95 < 100ms.
 
-**Method:** Same 12 conversations, same machine. Measure per-append wall-clock time. Since summarization is deferred to `render()`, append performs only local computation (TF-IDF embedding + forest structural ops).
+**Method:** Same 12 conversations, same machine. Measure per-append wall-clock time and per-render wall-clock time. Both `append()` and `render()` are synchronous — no LLM calls. Append performs local computation (TF-IDF embedding + forest structural ops). Render returns cached summaries + hot zone messages.
 
-**Benchmark target:** p95 < 100ms
-**Note:** This metric validates that `append()` no longer blocks on LLM calls. It does NOT measure end-to-end UX. See H2b.
+**Benchmark target:** p95 < 100ms (both append and render)
+**Note:** This metric validates that neither `append()` nor `render()` blocks on LLM calls. LLM work happens in `resolveDirty()` (background). See H2b.
 
-### H2b: Render Latency
+### H2b: ResolveDirty Latency
 
-Union-find v2 render latency p95 reported (no pass/fail target).
+Union-find v2 `resolveDirty()` latency reported (no pass/fail target).
 
-**Method:** Measure wall-clock time of `render()` call at end of each conversation (resolves all dirty clusters). This is where deferred LLM work happens.
+**Method:** Measure wall-clock time of `resolveDirty()` call after each conversation's final render (batch-summarizes all dirty clusters). This is where all LLM work happens.
 
-**Report:** p50, p90, p95, p99, max. Compare against v1's per-append latency to assess whether latency was genuinely reduced or merely relocated.
+**Report:** p50, p90, p95, p99, max. Compare against v1's per-append latency to assess whether latency was genuinely eliminated or merely relocated.
 
-**No pass/fail target** because render latency depends on number of dirty clusters accumulated, which varies by conversation. This is an honest observation, not a gamed metric.
+**No pass/fail target** because `resolveDirty()` runs in background during the main LLM call wait (5-30s). Its absolute latency matters less than whether it completes before the overlap window evicts messages from hot. This is an honest observation, not a gamed metric.
 
 ### H3: Cost (Economics)
 
 Union-find v2 total token cost ≤ 2x flat over same conversations.
 
-**Method:** Same 12 conversations, actual token counts from API responses. Count ALL LLM calls across full conversation lifecycle: append-time (should be zero in v2) + render-time summarization calls.
+**Method:** Same 12 conversations, actual token counts from API responses. Count ALL LLM calls across full conversation lifecycle: append-time (zero in v2) + render-time (zero in v2) + resolveDirty-time summarization calls.
 
 **Benchmark target:** Union-find cost ≤ 2x flat
-**Cost counting:** Total input + output tokens across all `summarizer.summarize()` calls, whenever they occur (append or render).
+**Cost counting:** Total input + output tokens across all `summarizer.summarize()` calls, whenever they occur (all in `resolveDirty()` for v2).
 
 ### H4: Development Methodology (Exploratory)
 
@@ -133,7 +137,7 @@ If a hypothesis misses its benchmark target on first measurement, **max 2 parame
 | Hypothesis | Change 1 | Change 2 | Then |
 |---|---|---|---|
 | H1 (Recall) | Merge threshold (0.15 → {0.10, 0.20}) | Retrieval k (3 → {2, 5}) or min_sim | Accept result |
-| H2a (Append) | Hot zone size (30 → {20, 40}) | Max cluster count (10 → {8, 15}) | Accept result |
+| H2a (Append+Render) | graduateAt/evictAt ({26,30} → {22,28}/{24,32}) | Max cluster count (10 → {8, 15}) | Accept result |
 | H3 (Cost) | Cluster limit (10 → 15) | Summary max tokens | Accept result |
 
 **Claim strength (downgraded for second attempt on reused data):**
@@ -171,6 +175,7 @@ experiment/v2/
 ├── performance/          # H2a + H2b
 │   ├── union-find-v2-append-latencies.csv
 │   ├── union-find-v2-render-latencies.csv
+│   ├── union-find-v2-resolve-dirty-latencies.csv
 │   ├── environment.md
 │   └── analysis.md
 ├── cost/                 # H3
