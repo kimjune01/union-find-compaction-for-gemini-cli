@@ -664,4 +664,43 @@ Clean rewrite of PREREGISTRATION.md after 3 rounds of codex review.
 - Removed Notes section (repeated information)
 - Updated witness to Opus 4.6
 
+**Commit:** 36088cf
+
+### Contribution Policies & Issue Filed (18:40)
+
+**GitHub issue opened:** https://github.com/google-gemini/gemini-cli/issues/22877
+- Links to spec repo, reference impl, preregistration
+- Waiting for maintainer approval before PR can be merged
+
+**gemini-cli Contributor Requirements (must follow):**
+
+1. **Google CLA**: ✅ Signed
+2. **Issue linked**: ✅ #22877 opened
+3. **Conventional commits**: Required format `feat(core): description`
+4. **License headers**: Apache 2.0 header required in all new `.ts`/`.tsx`/`.js` files (current year)
+5. **`npm run preflight`**: Must pass (clean, install, build, lint, type check, tests)
+6. **Small focused PRs**: One feature per PR, don't bundle unrelated changes
+7. **Draft PRs**: Use for early feedback before formal review
+8. **Documentation**: Update `/docs` for user-facing changes
+9. **Node.js**: Use ~20.19.0 for development
+10. **Review tool**: Run `./scripts/review.sh <PR_NUMBER>` after PR creation
+
+**PR template checklist (from .github/pull_request_template.md):**
+- Linked to issue
+- Tests added/updated
+- Documentation updated (if user-facing)
+- `npm run preflight` passes
+- Follows conventional commits
+
+**Code style:**
+- TypeScript, ESLint + Prettier enforced
+- Specific imports (no restricted relative imports between packages)
+- Follow existing codebase patterns
+
+**What NOT to do:**
+- Don't submit PR without linked issue (auto-closed)
+- Don't bundle multiple features in one PR
+- Don't touch `🔒Maintainers only` issues
+- Don't skip license headers on new files
+
 **Commit:** [pending]
