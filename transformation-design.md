@@ -380,14 +380,18 @@ async compress(...) {
 
 **Answer:** Start with reference implementation defaults, tune based on Pro user conversations.
 
-**Initial thresholds:**
+**Initial thresholds (see [DESIGN_DECISIONS.md](DESIGN_DECISIONS.md)):**
 ```typescript
-hot_size = 20              // Recent messages kept verbatim
-max_cold_clusters = 10     // Cluster budget cap
-merge_threshold = 0.15     // TF-IDF cosine similarity floor
+hot_size = 30              // Recent messages kept verbatim (configurable, matches 30% preservation)
+max_cold_clusters = 10     // Cluster budget cap (validated in experiments)
+merge_threshold = 0.15     // TF-IDF cosine similarity floor (configurable tuning parameter)
 retrieve_k = 3             // Top-k clusters for rendering
 retrieve_min_sim = 0.05    // Minimum similarity to include
 ```
+
+**Configurable parameters:**
+- `hot_size`: via `config.getHotZoneSize()` (default 30)
+- `merge_threshold`: via `config.getMergeThreshold()` (default 0.15 for TF-IDF, 0.5+ for dense)
 
 **Tuning strategy:**
 - Measure cluster count distribution across Pro conversations
@@ -734,15 +738,33 @@ test('cost comparison for 200-message conversation', async () => {
 **Spike passes if:**
 1. ✅ **Correctness tests pass** - Unit tests green
 2. ✅ **Behavior tests pass** - Integration tests green, backward compat verified
-3. ✅ **Recall improvement** - Union-find >= 5pp better than flat on planted facts test
+3. ✅ **Recall improvement** - Union-find **≥ flat with statistical significance** (McNemar's test, p < 0.05)
 4. ✅ **Non-blocking UX** - Append latency < 100ms
-5. ✅ **Cost acceptable** - Total tokens within 2x of flat
+5. ✅ **Cost acceptable** - Total tokens comparable to flat (not 2x - see cost model)
 
 **Spike fails if:**
 - ❌ Correctness tests fail → Learning: implementation bug, fix in prose
 - ❌ Recall worse than flat → Learning: TF-IDF insufficient, try dense embeddings
 - ❌ Cost > 3x flat → Learning: too many merges, adjust thresholds
 - ❌ Latency > 1s per append → Learning: embedding too slow, optimize or simplify
+
+## Design Decisions & Known Limitations
+
+**All design decisions documented in:** [DESIGN_DECISIONS.md](DESIGN_DECISIONS.md)
+
+**Key decisions for spike:**
+- Hot zone = 30 messages (configurable, matches 30% preservation)
+- TF-IDF embeddings (swap to dense if recall < statsig threshold)
+- No verification for cluster summaries (trust single-pass)
+- Real conversation dataset preferred for testing
+- Statsig recall threshold: ≥ flat with p < 0.05
+
+**Known limitations (deferred to future):**
+- Message edits not supported
+- Concurrency not handled (assumes sequential processing)
+- Cache eviction at 1000 messages (evict sources, keep summaries)
+
+**See DESIGN_DECISIONS.md for complete rationale and iteration triggers.**
 
 ## Next: Implementation Iteration
 
