@@ -38,7 +38,7 @@ Union-find (proposed):
   resolveDirty()    ~4s    Async fire-and-forget. Batch-summarizes dirty clusters in background.
 ```
 
-**Overlap window:** Messages exist in both hot zone and cold forest for ~2 turns. By the time they evict from hot, their cluster summary is already resolved. Zero blocking, zero staleness.
+**Overlap window:** Messages exist in both hot zone and cold forest for ~2 turns. By the time they evict from hot, their cluster summary is already resolved. No blocking.
 
 ## Repository Map
 
@@ -67,6 +67,10 @@ Two commits on [`feat/union-find-compaction`](https://github.com/kimjune01/gemin
 - `config.ts` -- `getCompressionStrategy()` method
 
 Feature-flagged, defaults to flat. Existing conversations unaffected.
+
+## Disclosure
+
+All written artifacts in this repository were produced with LLM assistance (Claude). The experiment harness, data collection, and analysis are reproducible.
 
 ## License
 
