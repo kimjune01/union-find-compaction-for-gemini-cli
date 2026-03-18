@@ -70,7 +70,7 @@ Feature-flagged, defaults to flat. Existing conversations unaffected.
 
 ## Disclosure
 
-All written artifacts in this repository were produced with LLM assistance (Claude). The experiment harness, data collection, and analysis are reproducible.
+All artifacts in this repository were produced with LLM assistance (Claude), including prose, code, and the experiment harness. Data collection and analysis are reproducible.
 
 ## License
 
