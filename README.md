@@ -1,165 +1,68 @@
-# Union-Find Context Compaction for Gemini-CLI
+# Union-Find Context Compaction for Gemini CLI
 
-Transforming context compression from flat summarization to structured compaction with provenance.
+Alternative to flat summarization that is **cheaper** (0.79x tokens), **non-blocking** (0.3ms p95), and **retains more detail** (+8.3pp recall trend).
 
-## Why This Matters
+**Status:** Implemented, tested (89/89 pass), experimentally validated. Behind feature flag on [`feat/union-find-compaction`](https://github.com/kimjune01/gemini-cli/tree/feat/union-find-compaction).
 
-Gemini 3 Pro users experience three core problems with current flat summarization:
+**Issue:** [google-gemini/gemini-cli#22877](https://github.com/google-gemini/gemini-cli/issues/22877)
 
-1. **Blocking UX**: 20-30 second spinner interrupts flow during compression
-2. **Lost details**: Specific technical values (ports, paths, thresholds) get dropped under compression pressure
-3. **No recovery**: Once summarized, original messages are gone—can't expand when more detail is needed
+## Results
 
-**Union-find compaction solves all three:**
+Preregistered experiment on 12 real GitHub issue conversations (120 messages each), evaluated with Gemini 3.1 Flash Lite.
 
-- ✅ **Non-blocking**: Compression happens incrementally per message (no spinner)
-- ✅ **Better recall**: Per-cluster summaries preserve 8pp more detail (70% → 78% validated experimentally)
-- ✅ **Expandable**: Can retrieve original messages from clusters when needed
-- ✅ **Provenance**: Trace facts back to source messages
-- ✅ **Cross-session memory**: Clusters persist, enabling long-term learning
+| Hypothesis | Result | Details |
+|---|---|---|
+| **H2a -- Latency** | **PASS** | append p95 = 0.33ms, render p50 = 0.006ms (criterion: <100ms) |
+| **H3 -- Cost** | **PASS** | 0.79x flat's token cost -- 21% cheaper |
+| **H1 -- Recall** | Trending + | +8.3pp (30.2% vs 21.9%), p=0.136. Won 8/12 conversations. |
+| **H2b -- Background** | INFO | resolveDirty p50 = 4.0s, fits within main LLM call wait |
 
-**Cost**: Comparable to current compression (not 2x—see [cost analysis](systems-comparison.md#cost-model))
+Raw data: [`experiment/v2/results-v2.json`](experiment/v2/results-v2.json) | Latency CSVs: [`experiment/v2/performance/`](experiment/v2/performance/)
 
-## Builds on Existing Work
+## How It Works
 
-This is **not a replacement** of gemini-cli's compression system—it's an **extension** that:
-
-- ✅ Preserves backward compatibility (existing `<state_snapshot>` conversations continue working)
-- ✅ Reuses model routing, tool output truncation, hook system
-- ✅ Implements as feature flag (gradual rollout, can revert)
-- ✅ Based on [published research](https://arxiv.org/abs/2408.04820) and experimental validation
-
-**Migration path**: New conversations use union-find, existing stay on flat (safe, no forced migration).
-
-## Try It Yourself
-
-**Can prose specification actually one-shot a complex implementation?**
-
-This repo documents a novel workflow: rigorous prose-driven development with bidirectional validation. We claim the transformation design in this repo can be implemented correctly by an LLM from prose alone.
-
-**Verify it with Gemini 3 Pro:**
-
-1. Clone this repo
-2. Read [transformation-design.md](transformation-design.md)
-3. Give it to Gemini 3 Pro: "Implement this transformation in TypeScript"
-4. Run the test harness (see [REPRODUCE.md](REPRODUCE.md))
-5. Observe: Does it one-shot? Do tests pass?
-
-**Expected outcome:** Implementation matches spec, tests validate behavior, recall improves.
-
-If it works, you've verified the workflow. If it doesn't, the diff shows where prose was incomplete—and we iterate.
-
-## Review at Your Level of Abstraction
-
-Choose how deep you want to go:
-
-| If you want to... | Look here |
-|-------------------|-----------|
-| **1-page summary** | ↑ README above (you are here) |
-| **Review the code** | [PR #XXX](https://github.com/google/gemini-cli/pull/XXX) - TypeScript implementation |
-| **Review the spec** | [transformation-design.md](transformation-design.md) - Complete transformation |
-| **Understand the why** | [systems-comparison.md](systems-comparison.md) - Flat vs Union-Find |
-| **See the process** | [WORK_LOG.md](WORK_LOG.md) - Development timeline, iterations |
-| **Verify it works** | [REPRODUCE.md](REPRODUCE.md) - Try it yourself with Gemini 3 Pro |
-| **Performance data** | [Experimental validation](systems-comparison.md#experimental-validation) - Recall metrics |
-| **Testing strategy** | [transformation-design.md §Testing](transformation-design.md#testing-strategy) - 4-level test harness |
-| **Migration safety** | [transformation-design.md §Migration](transformation-design.md#migration-path-detail) - Backward compat |
-| **Cost analysis** | [systems-comparison.md §Cost Model](systems-comparison.md#cost-model) - Comparable, not 2x |
-
-## What's Different About This Approach
-
-**Traditional refactoring**: Write code → hope tests catch mistakes → iterate through debugging
-
-**Prose-driven refactoring**: Write rigorous spec → validate with LLM implementation → iterate through spec refinement
-
-**Advantages:**
-- Specification is reviewable (easier than reviewing 5000 lines of TypeScript)
-- Mistakes caught in prose before code (cheaper to fix)
-- Process is reproducible (anyone with Gemini 3 Pro can verify)
-- Documentation is the spec (stays in sync by construction)
-
-**See [WORK_LOG.md](WORK_LOG.md)** for how this process evolved through checkpoints and iteration.
-
-## Quick Architecture Overview
-
-**Current (Flat Summarization):**
 ```
-[All old messages] → Single LLM call (generate) → Second LLM call (verify)
-  → One <state_snapshot> + Recent 30% verbatim
+Flat (current):
+  [All old messages] --> LLM summarize --> LLM verify --> single snapshot + recent 30%
+  Blocking: 20-30s spinner. Two LLM calls per compression event.
+
+Union-find (proposed):
+  append(msg)       <1ms   Synchronous. Embeds locally, graduates to forest, merges by similarity.
+  render()          <0.1ms Synchronous. Returns cached cluster summaries + hot zone verbatim.
+  resolveDirty()    ~4s    Async fire-and-forget. Batch-summarizes dirty clusters in background.
 ```
 
-**Target (Union-Find Compaction):**
-```
-[Hot zone: Recent 20 messages, verbatim, never touched]
-[Cold zone: Older messages → Clusters → Per-cluster summaries]
+**Overlap window:** Messages exist in both hot zone and cold forest for ~2 turns. By the time they evict from hot, their cluster summary is already resolved. Zero blocking, zero staleness.
 
-On each message:
-  → Append to hot
-  → If hot overflows → Graduate oldest to cold
-  → Merge into nearest cluster (or create singleton)
-  → If cold > 10 clusters → Merge closest pair
-  → Render: Retrieve relevant clusters + all hot
-```
+## Repository Map
 
-**Key differences:**
-- Incremental (per message) vs batch (per compression event)
-- Non-blocking vs 20-30s spinner
-- Multiple cluster summaries vs single snapshot
-- Originals retained (expandable) vs discarded (irreversible)
+| Document | What's in it |
+|---|---|
+| [`PREREGISTRATION-V2.md`](PREREGISTRATION-V2.md) | Hypotheses, criteria, decision rules (written before experiment) |
+| [`experiment/v2/`](experiment/v2/) | Experiment harness, results JSON, latency CSVs |
+| [`transformation-design.md`](transformation-design.md) | TypeScript specification for the transformation |
+| [`systems-comparison.md`](systems-comparison.md) | Flat vs union-find architectural comparison |
+| [`DESIGN_DECISIONS.md`](DESIGN_DECISIONS.md) | 15 design choices with rationale |
+| [`WORK_LOG.md`](WORK_LOG.md) | Full development timeline: v1 failure, v2 redesign, experiment |
 
-**See [systems-comparison.md](systems-comparison.md) for detailed architectural comparison.**
+## Implementation
 
-## Status
+Two commits on [`feat/union-find-compaction`](https://github.com/kimjune01/gemini-cli/tree/feat/union-find-compaction):
 
-**Current:** Specification complete, ready for implementation iteration
+**New files:**
+- `contextWindow.ts` -- Forest (union-find with path compression) + ContextWindow (overlap window)
+- `contextWindow.test.ts` -- 45 tests
+- `embeddingService.ts` -- TF-IDF embedder (synchronous, no API calls)
+- `clusterSummarizer.ts` -- LLM summarizer via existing BaseLlmClient
 
-**Next steps:**
-1. Set up test harness (unit, integration, quality, performance)
-2. Spike implementation from transformation spec
-3. Tests pass? → Performance validation
-4. Tests fail? → Refine spec based on learnings, retry
+**Modified files:**
+- `chatCompressionService.ts` -- dual-path routing (flat vs union-find)
+- `flagNames.ts` -- `UNION_FIND_COMPACTION` experiment flag
+- `config.ts` -- `getCompressionStrategy()` method
 
-**Expected:** 2-3 iterations to convergence (spec evolves, implementation validates)
-
-## References
-
-- **Experimental validation**: [Union-Find Context Compaction](https://github.com/[reference-repo]) - Research prototype with recall experiments
-- **Literate programming revival**: [Natural Language Outlines for Code (arXiv 2024)](https://arxiv.org/abs/2408.04820)
-- **Spec-driven development**: [Thoughtworks 2025 Engineering Practices](https://www.thoughtworks.com/en-us/insights/blog/agile-engineering-practices/spec-driven-development-unpacking-2025-new-engineering-practices)
-
-## Acknowledgments
-
-This work emerged from a series of blog posts tracing the intellectual journey:
-
-- **[Union-Find Compaction](https://june.kim/union-find-compaction)** - Novel solution discussed
-- **[The Parts Bin](https://june.kim/the-parts-bin)** - Solution discovery approach
-- **[Diagnosis: LLM](https://june.kim/diagnosis-llm)** - Problem diagnosis
-- **[The Natural Framework](https://june.kim/the-natural-framework)** - Metacognition enabler
-- **[Double Loop](https://june.kim/double-loop)** - Methodology development
-- **[Vibelogging](https://june.kim/vibelogging)** - Methodology insight source
-
-The progression: vibelogging → methodology insight → double-loop methodology → natural framework for metacognition → diagnosing the LLM problem → discovering solutions in the parts bin → arriving at union-find compaction.
+Feature-flagged, defaults to flat. Existing conversations unaffected.
 
 ## License
 
-**Dual licensing** to protect methodology while enabling friction-free implementation:
-
-- **Specification and documentation** (all `.md` files): [CC BY-SA 4.0](LICENSE-SPEC.md)
-  - Ensures derived methodologies remain open and improvements flow back to the community
-  - Attribution and share-alike required for derived specifications
-
-- **Code implementations**: [Apache 2.0](LICENSE-CODE.md)
-  - Matches gemini-cli's license (no integration friction)
-  - Permissive for commercial use, clear patent grant
-
-**Why dual licensing?** The CC BY-SA protects the *methodology* (derived specs must be shared), while Apache 2.0 keeps *implementations* permissive (matches gemini-cli, no barriers to adoption).
-
-## Contributing
-
-This is a proposed transformation for gemini-cli. Discussion welcome:
-
-- **Questions about the approach?** Open an issue
-- **Found spec ambiguity?** That's valuable—helps us refine the prose
-- **Tried reproducing and it failed?** Share the diff—that's how we improve
-
-The goal is to validate (or invalidate) prose-driven development as a methodology. Honest feedback—especially failures—helps everyone learn.
+- Specification (`.md` files): [CC BY-SA 4.0](LICENSE-SPEC.md)
+- Code: [Apache 2.0](LICENSE-CODE.md) (matches gemini-cli)
