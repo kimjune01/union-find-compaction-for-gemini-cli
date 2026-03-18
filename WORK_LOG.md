@@ -332,30 +332,80 @@ Elicited key concern: Credibility + avoiding offense (outsider doing better/fast
 
 **Commits:** 840b061 (cost model), 6d949f4 (README)
 
+### Step 6: Design Decisions Elicitation (16:45-17:15)
+**File:** `DESIGN_DECISIONS.md` (280 lines)
+
+**Approach:** Systematic elicitation from least to most uncertain (user preference: one question at a time)
+
+**15 decisions documented with rationale:**
+
+**Least uncertain (1-3):**
+1. Hot zone size: 30 messages (configurable, matches current 30% preservation)
+2. Model routing: Reuse `chat-compression-3-pro` aliases (no new configs)
+3. Timestamp format: Match gemini-cli existing format
+
+**Medium uncertainty (4-9):**
+4. TF-IDF vocabulary: Incremental (spike → iterate if recall suffers)
+5. Recall threshold: Statsig ≥ flat (McNemar's test, p<0.05)
+6. Test dataset: Real conversations preferred over synthetic
+7. Max cold clusters: 10 (validated in reference experiments)
+8. Merge threshold: 0.15 for TF-IDF (configurable tuning parameter)
+9. Retrieval strategy: Always top-k (k=3, min_sim=0.05)
+
+**Most uncertain (10-15):**
+10. Cache eviction: Evict sources @1000 messages, keep summaries (graceful degradation)
+11. Message edits: Not supported (known limitation)
+12. Concurrency: Out of scope for spike (known limitation)
+13. Summary quality: Trust single-pass, invite reviewer criticism
+14. Persistence: Match previous impl (clusters persist with conversation)
+15. Migration: Existing conversations stay flat (safe, no forced migration)
+
+**Known limitations documented:**
+- Message edits not supported (editing old clustered messages)
+- Concurrency not handled (rapid appends may need queuing)
+- No summary verification (trust single-pass)
+- TF-IDF may need upgrade to dense embeddings
+- Retrieval can miss cross-topic queries
+
+**Iteration triggers defined:**
+- Recall < statsig vs flat → Swap to dense embeddings
+- Cluster fragmentation >50% → Adjust merge threshold
+- Summary quality complaints → Add verification or tune prompts
+- Retrieval misses >20% → Increase k or adjust min_sim
+- Memory usage excessive → Adjust eviction threshold
+
+**Key insights:**
+- Cache eviction strategy critical: evict old `_nodes` entries, keep `_summaries`/`_children`/`_centroids`
+- Old clusters: searchable/retrievable, NOT expandable (one-way compression for very old history)
+- Bounds memory predictably while maintaining searchability
+- User doesn't need manual context clearing
+
+**Commits:** fba6342 (DESIGN_DECISIONS.md), 9dae866 (integrated into transformation-design.md)
+
+**Checkpoint:** ✅ **Step 6 COMPLETE** - All design conflicts sharpened, specification ready for implementation
+
 ### Next Steps
-- [ ] Step 6: Sharpen conflicts and complexity at prose level
 - [ ] Create REPRODUCE.md (how to verify one-shot with Gemini 3 Pro)
-- [ ] Create performance-analysis.md (recall experiments, metrics)
-- [ ] Step 6: Sharpen conflicts and complexity at prose level
 - [ ] Step 7: Publish blog post + repo with process documentation
 - [ ] Step 8: Iterative implementation (test harness → spike → learn → refine)
-- [ ] Step 4: Combine with union-find prose from reference
-- [ ] Step 5: Create transformation prose (before → after)
-- [ ] Step 6: Sharpen conflicts and complexity
-- [ ] Step 7: Publish blog post + repo
-- [ ] Step 8: Apply to gemini-cli (one-shot test)
 - [ ] Step 9: Open PR with evidence
 
 ### Working Directory Contents
 ```
 current-system-extraction.md  (4.5KB) - Current system code extraction
+current-system-prose.md       (7.5KB) - Prose description (verified)
+current-system-verification.md (5.5KB) - Verification audit
+systems-comparison.md         (13KB)  - Flat vs Union-Find comparison
+transformation-design.md      (21KB)  - Complete transformation spec
+DESIGN_DECISIONS.md           (280 lines) - 15 design decisions
+README.md                     (6.5KB) - Navigation + value prop
 WORK_LOG.md                   (this file)
 ```
 
-### Questions to Address
-1. How does union-find integrate with existing split point logic?
-2. Should hot zone = preserved 30%? Or different size?
-3. What happens to tool output truncation in union-find system?
-4. How to handle previous `<state_snapshot>` integration?
-5. Model routing for cluster summarization vs full snapshot?
-6. Backward compatibility during transition?
+### All Design Questions Resolved
+~~1. How does union-find integrate with existing split point logic?~~ → Feature flag dual-path
+~~2. Should hot zone = preserved 30%? Or different size?~~ → 30 messages (configurable)
+~~3. What happens to tool output truncation in union-find system?~~ → Truncate before graduation
+~~4. How to handle previous `<state_snapshot>` integration?~~ → Existing stay flat (safe migration)
+~~5. Model routing for cluster summarization vs full snapshot?~~ → Reuse chat-compression-3-pro
+~~6. Backward compatibility during transition?~~ → Feature flag, no forced migration
