@@ -26,12 +26,18 @@ These are the **primary claims** requiring rigorous preregistration and protecti
 
 Before stating hypotheses, freeze the exact implementation approach:
 
-- **Model**: Claude Sonnet 4.5 (`claude-sonnet-4-5-20250929`)
+- **Model for implementation**: Claude Opus 4.6 (`claude-opus-4-6`)
+- **Model for experiment**: Gemini 3.1 Flash Lite (budget constraint - **documented limitation**)
 - **Temperature**: Default (1.0)
 - **Input**: `transformation-design.md` specification only
 - **Tools**: Standard code tools (Read, Write, Edit)
 - **Test feedback**: Allowed (can run tests, see failures, iterate on code)
 - **Spec refinement**: Exploratory (document iterations, but not confirmatory claim)
+
+**Known limitations:**
+- Flash Lite vs Gemini 3 Pro: Results may differ on production Pro model
+- Budget constraint limits evaluation to Flash tier
+- Recommendation applies to Pro users but tested on Lite
 
 ---
 
@@ -39,20 +45,29 @@ Before stating hypotheses, freeze the exact implementation approach:
 
 ### H1: Recall Improvement (Quality) - PRIMARY CONFIRMATORY
 
-**Hypothesis:** Union-find compaction improves recall by ≥5pp compared to flat summarization.
+**Hypothesis:** Union-find compaction improves recall by ≥5pp compared to flat summarization **on publicly available coding conversations**.
 
 **Measurement approach:**
-1. Create test dataset: 10 conversations with planted facts (technical details: ports, paths, commands, thresholds)
-2. Compress with both strategies (flat vs union-find)
-3. Query for facts, measure retrieval accuracy
-4. Compare: union-find recall - flat recall
+1. **Test dataset**: 10-20 real coding conversations from public sources
+   - GitHub issue threads with code discussions
+   - Stack Overflow Q&A with technical details
+   - Publicly available CLI usage logs (if available)
+   - Minimum 100 messages per conversation
+2. **Evaluation**: For each conversation:
+   - Compress with flat summarization
+   - Compress with union-find
+   - Ask 5-10 factual questions about technical details (APIs, commands, configs, error messages)
+   - Score answer quality: correct/incorrect/partial
+3. **Measurement**: Recall percentage = (correct answers / total questions) per strategy
+4. **Comparison**: McNemar's test on paired observations (p<0.05)
 
 **Success criteria:**
-- ✅ Recall improvement ≥ 5pp (statistically significant, McNemar's test p<0.05)
-- ✅ No catastrophic failures (recall < flat - 5pp)
+- ✅ Recall improvement ≥ 5pp (union-find > flat by 5+ percentage points)
+- ✅ Statistically significant (McNemar's test p<0.05 on paired observations)
+- ✅ No catastrophic failures (union-find not >5pp worse)
 
 **Failure modes:**
-- ❌ No significant difference (within ±2pp)
+- ❌ No significant difference (within ±2pp or p≥0.05)
 - ❌ Union-find worse than flat (regression)
 
 **Decision rule if H1 fails:**
@@ -67,13 +82,15 @@ Before stating hypotheses, freeze the exact implementation approach:
 **Hypothesis:** Union-find append latency < 100ms per message (non-blocking UX).
 
 **Measurement approach:**
-1. Measure append latency over 200-message conversation
-2. Track: hot append (no graduation), cold append (graduation + merge)
-3. 95th percentile latency < 100ms
+1. Same 200-message conversation, **both systems measured on same machine**
+2. Flat: measure total compression time when triggered (blocking event)
+3. Union-find: measure per-append latency (hot append vs cold append with graduation/merge)
+4. Track p50, p95, p99 latencies for union-find
+5. Track total blocking time for flat compression events
 
 **Success criteria:**
-- ✅ p95 latency < 100ms
-- ✅ No user-perceptible blocking (no spinner needed)
+- ✅ Union-find p95 append latency < 100ms
+- ✅ Flat compression blocking time documented for comparison (expected 20-30s)
 
 **Failure modes:**
 - ❌ Latency > 100ms (merge computation too slow)
@@ -91,10 +108,11 @@ Before stating hypotheses, freeze the exact implementation approach:
 **Hypothesis:** Union-find total cost within 2x of flat summarization over 200 messages.
 
 **Measurement approach:**
-1. Track LLM API costs (input tokens + output tokens)
-2. Flat: 2 calls (generate + verify) at ~190 messages each
-3. Union-find: ~10 cluster summaries at ~20-40 messages each
-4. Compare total token costs
+1. **Same 200-message conversation**, both systems measured
+2. Track actual LLM API token counts (input + output) from real executions
+3. Flat: record tokens for all compression calls that fire during 200 messages
+4. Union-find: record tokens for all cluster merge/summarize calls during 200 messages
+5. Calculate cost using Flash Lite pricing (note: documented limitation)
 
 **Success criteria:**
 - ✅ Union-find cost ≤ 2x flat cost
@@ -124,23 +142,26 @@ Before stating hypotheses, freeze the exact implementation approach:
 **Allowed parameter changes (priority order):**
 
 **For H1 (Quality/Recall):**
-1. Change 1: Upgrade TF-IDF to dense embeddings (e.g., OpenAI text-embedding-3-small)
-2. Change 2: Adjust merge threshold (0.15 → {0.10, 0.20})
+1. Change 1 (parameter): Adjust merge threshold (0.15 → {0.10, 0.20})
+2. Change 2 (parameter): Adjust retrieval k (3 → {2, 5}) or min_sim (0.05 → {0.03, 0.10})
 3. STOP - accept result
+4. *(Switching TF-IDF to dense embeddings = new system, not tuning. If attempted, re-classify as exploratory.)*
 
 **For H2 (Performance/UX):**
-1. Change 1: Add embedding cache (avoid recomputation)
-2. Change 2: Async merge (non-blocking append)
+1. Change 1 (parameter): Adjust hot zone size (30 → {20, 40})
+2. Change 2 (parameter): Adjust max cluster count (10 → {8, 15})
 3. STOP - accept result
+4. *(Async merge = architectural change, not tuning. If attempted, re-classify as exploratory.)*
 
 **For H3 (Cost):**
-1. Change 1: Increase cluster limit (10 → 15, reduce merge frequency)
-2. Change 2: Tune summary brevity prompt
+1. Change 1 (parameter): Increase cluster limit (10 → 15, reduce merge frequency)
+2. Change 2 (parameter): Adjust summary max tokens
 3. STOP - accept result
 
 **Claim downgrade based on tuning:**
 - 0 changes needed: "Hypothesis confirmed"
-- 1-2 changes needed: "Hypothesis supported after tuning (exploratory)"
+- 1-2 parameter changes needed: "Hypothesis supported after parameter tuning"
+- Architectural change needed: "Exploratory only - requires new system evaluation"
 - Still failing after 2 changes: "Hypothesis not supported"
 
 ---
@@ -172,19 +193,21 @@ The methodology is just how we built it. The important question is whether union
 
 ### Scenario 1: All Primary Hypotheses Pass (H1 ✅, H2 ✅, H3 ✅)
 
-**Outcome:** Union-find is strictly better than flat summarization
+**Outcome:** Union-find shows improvement on all three metrics **in this experiment**
 
 **Action:**
 1. Document results in RESULTS.md
-2. Open PR to gemini-cli with evidence
-3. Write blog post: "Union-find context compaction: Better recall, UX, and comparable cost"
-4. Note development methodology (H4) as interesting process observation
+2. Open PR to gemini-cli with evidence and caveats
+3. Write blog post with scoped claims (see below)
+4. Note development methodology (H4) as process observation
 
-**Claims we can make:**
-- ✅ Quality improved (recall ≥5pp better)
-- ✅ UX improved (non-blocking append <100ms)
-- ✅ Cost comparable (≤2x flat)
-- ✅ Union-find is superior for Gemini 3 Pro users
+**Claims we can make (scoped to experiment):**
+- ✅ Recall improved ≥5pp on public coding conversations (H1)
+- ✅ Append latency <100ms non-blocking (H2)
+- ✅ Cost ≤2x flat on 200-message benchmark (H3)
+- ⚠️ **Caveat**: Tested on Flash Lite, may differ on Pro
+- ⚠️ **Caveat**: Benchmark data, not production validation
+- ⚠️ **Recommendation**: Consider for Pro users if production testing validates results
 
 ---
 
@@ -302,48 +325,67 @@ The methodology is just how we built it. The important question is whether union
 ### H1: Quality Measurement (Recall)
 
 **Test dataset:**
-- 10 conversations (100-300 messages each)
-- 5 planted facts per conversation (technical details)
-- Fact types: ports (8080), paths (/var/log/app.log), commands (git rebase -i), thresholds (timeout=30s), schemas (JSON structure)
+- 10-20 real coding conversations from public sources
+- Sources: GitHub issues, Stack Overflow, public CLI logs
+- Minimum 100 messages per conversation
+- Covers technical discussions with factual details (APIs, commands, configs, errors)
 
-**Measurement:**
-1. Compress with flat: measure recall
-2. Compress with union-find: measure recall
-3. McNemar's test for significance (p<0.05)
+**Measurement protocol:**
+1. Select conversations (archive URLs with timestamps for reproducibility)
+2. For each conversation:
+   - Compress with flat summarization (measure tokens, time)
+   - Compress with union-find (measure tokens, time)
+   - Generate 5-10 factual questions from conversation content
+   - Query both compressed versions with same questions
+   - Score answers: correct (1), partial (0.5), incorrect (0)
+3. Calculate recall per conversation: (total score / max possible)
+4. McNemar's test on paired (flat_score, union-find_score) per question
+
+**Scoring rubric:**
+- Correct: Answer matches ground truth, includes key technical details
+- Partial: Answer directionally correct but missing specifics
+- Incorrect: Answer wrong, missing, or contradicts ground truth
 
 **Storage:** `experiment/quality-test/`
-- `conversations/` - Test conversations
-- `facts.json` - Planted facts with ground truth
-- `flat-recall.json` - Flat strategy results
-- `union-find-recall.json` - Union-find results
-- `analysis.md` - Statistical analysis
+- `conversations/` - Archived conversation URLs + local copies
+- `questions.json` - Generated questions with ground truth answers
+- `flat-results.json` - Flat strategy answers + scores
+- `union-find-results.json` - Union-find answers + scores
+- `analysis.md` - Statistical analysis with McNemar's test results
 
 ---
 
 ### H2: Performance Measurement (UX/Latency)
 
 **Benchmark:**
-- 200-message conversation (append one by one)
-- Measure latency for each append (hot vs cold)
-- Track p50, p95, p99 latencies
+- Same 200-message conversation used for both systems
+- Flat: measure blocking time for each compression event
+- Union-find: measure per-append latency (hot vs cold)
+- Track p50, p95, p99 for union-find appends
+- Track total/average blocking time for flat compression events
+- **Environment**: Document machine specs, model endpoint, network conditions
 
 **Storage:** `experiment/performance/`
-- `latencies.csv` - Per-message append latency
-- `analysis.md` - Latency distribution analysis
+- `union-find-latencies.csv` - Per-append latency (hot/cold flag)
+- `flat-blocking-times.csv` - Per-compression-event blocking time
+- `environment.md` - Machine specs, model endpoint, test conditions
+- `analysis.md` - Latency distribution analysis + comparison
 
 ---
 
 ### H3: Cost Measurement (Economics)
 
 **Token tracking:**
-- Flat: Track input/output tokens for generate + verify calls
-- Union-find: Track input/output tokens for all cluster merges
-- Calculate total cost using Gemini 3 Pro pricing
+- Same 200-message conversation used for both systems
+- Flat: Record actual input/output tokens for all compression calls
+- Union-find: Record actual input/output tokens for all merge/summarize calls
+- Both measured from real API responses (not estimated)
+- Calculate cost using Gemini 3.1 Flash Lite pricing
 
 **Storage:** `experiment/cost/`
-- `flat-tokens.json` - Flat strategy token counts
-- `union-find-tokens.json` - Union-find token counts
-- `cost-comparison.md` - Cost analysis
+- `flat-tokens.json` - Per-call token counts from actual API responses
+- `union-find-tokens.json` - Per-call token counts from actual API responses
+- `cost-comparison.md` - Cost analysis with pricing breakdown
 
 ---
 

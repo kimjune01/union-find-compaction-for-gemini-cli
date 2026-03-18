@@ -595,4 +595,20 @@ WORK_LOG.md                   (this file)
 3. Freeze implementation artifact before confirmatory run - addresses #2
 4. Specify exact scoring/baseline measurement - addresses #4, #5
 
+**Commit:** ee92ce3
+
+### Preregistration Improvements from Codex Review (18:15)
+
+**Addressed 5 of 6 codex issues:**
+
+1. ✅ **Construct validity (#1)**: Replaced synthetic planted facts with publicly available coding data (GitHub issues, SO, CLI logs)
+2. ✅ **Baselines not comparable (#5)**: Both systems now measured on same conversation, same machine, same environment
+3. ✅ **Overclaiming (#6)**: Claims scoped to "in this experiment" with Flash Lite caveat
+4. ✅ **Tuning = redesigns (#3)**: Reclassified TF-IDF→dense and sync→async as "architectural changes" (exploratory, not tuning). Only real parameter changes (thresholds, counts) allowed.
+5. ✅ **Model specification**: Opus 4.6 for implementation, Flash 3.1 Lite for experiment (budget)
+
+**Partially addressed:**
+- **Implementation not frozen (#2)**: Test feedback still allowed (necessary for development), but H4 is exploratory so this is acceptable
+- **H1 underpowered (#4)**: Increased to 10-20 conversations with 5-10 questions each (50-200 observations). Full power analysis deferred.
+
 **Commit:** [pending]
