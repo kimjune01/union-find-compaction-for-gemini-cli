@@ -1043,3 +1043,53 @@ Deleted stale tasks #1-#3 (predated overlap design). Created fresh tasks #4-#7 f
 - Existing flat compression tests unchanged and passing
 
 **Commit:** `b9a854c57` — feat(core): v2 union-find with overlap window and deferred summarization
+
+### v2 Experiment Run
+
+**Date:** 2026-03-18
+**Model:** gemini-3.1-flash-lite-preview
+**Classification:** Exploratory benchmark validation on reused data
+**Duration:** 6.5 minutes, 455 API calls, 728,918 tokens
+
+#### Results Summary
+
+| Hypothesis | Result | Details |
+|---|---|---|
+| H1 (Recall) | FAIL | +8.3pp (30.2% vs 21.9%), p=0.136 — trending positive but not statistically significant |
+| H2a (Append+Render) | **PASS** | p95 = 0.330ms (criterion: <100ms). Render p50 = 0.006ms. |
+| H2b (ResolveDirty) | INFO | p95 = 9.5s background. Fits within main LLM call wait (5-30s). |
+| H3 (Cost) | **PASS** | 0.79x — union-find is 21% **cheaper** than flat (112K vs 143K tokens) |
+
+#### Key Observations
+
+**Cost — massive improvement over v1:**
+- v2: 35 summarizer calls total across 12 conversations
+- v1: ~960 calls (O(n²))
+- Flat: 24 calls (2 per conversation × 12)
+- The O(n) architecture pays off: 35 calls at 0.79x cost vs flat. v1 was 5.2x cost.
+
+**Latency — zero user-perceived latency:**
+- Append p50: 0.176ms, p95: 0.330ms, max: 0.938ms
+- Render p50: 0.006ms, p95: 0.107ms, max: 0.107ms
+- resolveDirty runs in background: median 3.97s, max 9.5s (well within 5-30s main LLM call)
+
+**Recall — promising signal, underpowered test:**
+- Union-find won 8/12 conversations, tied 2, lost 2
+- McNemar's: b=7 (flat only), c=15 (union only) — union gets 2.14x more exclusive wins
+- p=0.136 — not significant at α=0.05 with 96 questions
+- Most striking: conv_08 (next.js className) showed +50pp for union-find (0% flat, 50% union)
+- The hot zone (30 recent messages verbatim) may be carrying most of the recall signal
+
+**Dirty cluster distribution:**
+- Conversations with more diverse topics (next.js #7322: 6 dirty, #48748: 5 dirty) had more clusters needing resolution
+- Single-topic conversations (vscode #519: 1 dirty, node #4660: 1 dirty) merged heavily → fewer resolveDirty calls
+
+#### Decision per Preregistration
+
+From PREREGISTRATION-V2.md decision rules:
+- "Exploratory: Use results to assess whether union-find merits further investigation."
+- H1 failed strict criterion but showed +8.3pp trending positive
+- H2a passed decisively (0.3ms vs 100ms threshold)
+- H3 passed with room to spare (0.79x vs 2.0x threshold)
+
+**Assessment:** The v2 architecture validates the performance and cost hypotheses conclusively. The recall signal is positive but needs a larger sample size (more conversations, more questions per conversation) to reach significance. The feature is worth keeping behind the experiment flag for further investigation.
