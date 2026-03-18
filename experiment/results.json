@@ -1,0 +1,864 @@
+{
+  "metadata": {
+    "date": "2026-03-18T02:38:30.540Z",
+    "model": "gemini-3.1-flash-lite-preview",
+    "conversations": 12,
+    "messagesPerConv": 120,
+    "questionsPerConv": 8,
+    "totalApiCalls": 1380,
+    "totalApiTokens": 4419067,
+    "elapsedMinutes": 43.5,
+    "commit": "79a4aedea",
+    "branch": "feat/union-find-compaction",
+    "machine": "Apple M4 Pro, 48GB"
+  },
+  "h1": {
+    "totalQuestions": 96,
+    "flatRecall": 20.833333333333336,
+    "unionFindRecall": 28.125,
+    "diffPP": 7.291666666666664,
+    "mcnemar": {
+      "a": 14,
+      "b": 6,
+      "c": 13,
+      "d": 63,
+      "chi2": 1.894736842105263,
+      "pValue": 0.1686687313165614
+    },
+    "pass": false,
+    "perConversation": [
+      {
+        "convId": "conv_01",
+        "repo": "microsoft/vscode",
+        "issue": 519,
+        "msgCount": 120,
+        "questionsGenerated": 8,
+        "flatRecall": 0.25,
+        "unionRecall": 0.25,
+        "unionCalls": 80,
+        "unionMerges": 80
+      },
+      {
+        "convId": "conv_02",
+        "repo": "facebook/react",
+        "issue": 13991,
+        "msgCount": 120,
+        "questionsGenerated": 8,
+        "flatRecall": 0.25,
+        "unionRecall": 0.125,
+        "unionCalls": 80,
+        "unionMerges": 80
+      },
+      {
+        "convId": "conv_03",
+        "repo": "facebook/react",
+        "issue": 11347,
+        "msgCount": 120,
+        "questionsGenerated": 8,
+        "flatRecall": 0.5,
+        "unionRecall": 0.25,
+        "unionCalls": 80,
+        "unionMerges": 80
+      },
+      {
+        "convId": "conv_04",
+        "repo": "microsoft/TypeScript",
+        "issue": 202,
+        "msgCount": 120,
+        "questionsGenerated": 8,
+        "flatRecall": 0.25,
+        "unionRecall": 0.375,
+        "unionCalls": 80,
+        "unionMerges": 80
+      },
+      {
+        "convId": "conv_05",
+        "repo": "microsoft/TypeScript",
+        "issue": 12936,
+        "msgCount": 120,
+        "questionsGenerated": 8,
+        "flatRecall": 0.125,
+        "unionRecall": 0.375,
+        "unionCalls": 80,
+        "unionMerges": 80
+      },
+      {
+        "convId": "conv_06",
+        "repo": "vercel/next.js",
+        "issue": 48748,
+        "msgCount": 120,
+        "questionsGenerated": 8,
+        "flatRecall": 0,
+        "unionRecall": 0.125,
+        "unionCalls": 80,
+        "unionMerges": 80
+      },
+      {
+        "convId": "conv_07",
+        "repo": "vercel/next.js",
+        "issue": 42991,
+        "msgCount": 120,
+        "questionsGenerated": 8,
+        "flatRecall": 0,
+        "unionRecall": 0.25,
+        "unionCalls": 80,
+        "unionMerges": 80
+      },
+      {
+        "convId": "conv_08",
+        "repo": "vercel/next.js",
+        "issue": 7322,
+        "msgCount": 120,
+        "questionsGenerated": 8,
+        "flatRecall": 0.125,
+        "unionRecall": 0.25,
+        "unionCalls": 80,
+        "unionMerges": 80
+      },
+      {
+        "convId": "conv_09",
+        "repo": "nodejs/node",
+        "issue": 4660,
+        "msgCount": 120,
+        "questionsGenerated": 8,
+        "flatRecall": 0.25,
+        "unionRecall": 0.375,
+        "unionCalls": 80,
+        "unionMerges": 80
+      },
+      {
+        "convId": "conv_10",
+        "repo": "rust-lang/rust",
+        "issue": 57640,
+        "msgCount": 120,
+        "questionsGenerated": 8,
+        "flatRecall": 0.125,
+        "unionRecall": 0.125,
+        "unionCalls": 80,
+        "unionMerges": 80
+      },
+      {
+        "convId": "conv_11",
+        "repo": "rust-lang/rust",
+        "issue": 31436,
+        "msgCount": 120,
+        "questionsGenerated": 8,
+        "flatRecall": 0.25,
+        "unionRecall": 0.375,
+        "unionCalls": 80,
+        "unionMerges": 80
+      },
+      {
+        "convId": "conv_12",
+        "repo": "flutter/flutter",
+        "issue": 100522,
+        "msgCount": 120,
+        "questionsGenerated": 8,
+        "flatRecall": 0.375,
+        "unionRecall": 0.5,
+        "unionCalls": 80,
+        "unionMerges": 80
+      }
+    ],
+    "trialResults": [
+      {
+        "conversationId": "conv_01",
+        "questionIdx": 0,
+        "question": "What specific configuration settings does user vviikk suggest to adjust font sizes in the editor and terminal?",
+        "flatCorrect": false,
+        "unionCorrect": false
+      },
+      {
+        "conversationId": "conv_01",
+        "questionIdx": 1,
+        "question": "Which extension does PSVapour mention for applying custom CSS to VS Code?",
+        "flatCorrect": false,
+        "unionCorrect": false
+      },
+      {
+        "conversationId": "conv_01",
+        "questionIdx": 2,
+        "question": "What reason does isidorn provide for why the team is not currently tackling the font size customization feature?",
+        "flatCorrect": true,
+        "unionCorrect": true
+      },
+      {
+        "conversationId": "conv_01",
+        "questionIdx": 3,
+        "question": "What specific font does swashata use when modifying the font family via devTools?",
+        "flatCorrect": false,
+        "unionCorrect": false
+      },
+      {
+        "conversationId": "conv_01",
+        "questionIdx": 4,
+        "question": "What error does chaddanna report when using the custom-css extension?",
+        "flatCorrect": false,
+        "unionCorrect": false
+      },
+      {
+        "conversationId": "conv_01",
+        "questionIdx": 5,
+        "question": "Which specific pull request is mentioned by MoOx as a potential solution to the font issue?",
+        "flatCorrect": true,
+        "unionCorrect": true
+      },
+      {
+        "conversationId": "conv_01",
+        "questionIdx": 6,
+        "question": "What specific VS Code version and OS version does AlGantori report using?",
+        "flatCorrect": false,
+        "unionCorrect": false
+      },
+      {
+        "conversationId": "conv_01",
+        "questionIdx": 7,
+        "question": "According to al2me6, what happens on Linux if you install the Segoe UI font from Windows?",
+        "flatCorrect": false,
+        "unionCorrect": false
+      },
+      {
+        "conversationId": "conv_02",
+        "questionIdx": 0,
+        "question": "What is the primary error message users encounter when experiencing this issue?",
+        "flatCorrect": true,
+        "unionCorrect": false
+      },
+      {
+        "conversationId": "conv_02",
+        "questionIdx": 1,
+        "question": "What specific Yarn feature does user `pelotom` suggest to force a single version of React?",
+        "flatCorrect": false,
+        "unionCorrect": false
+      },
+      {
+        "conversationId": "conv_02",
+        "questionIdx": 2,
+        "question": "What solution does `dwjohnston` propose for Webpack configurations to resolve multiple React instances?",
+        "flatCorrect": false,
+        "unionCorrect": false
+      },
+      {
+        "conversationId": "conv_02",
+        "questionIdx": 3,
+        "question": "What library does `mpeyper` recommend for testing hooks independently of specific components?",
+        "flatCorrect": false,
+        "unionCorrect": false
+      },
+      {
+        "conversationId": "conv_02",
+        "questionIdx": 4,
+        "question": "What specific Babel configuration change did `ts-jait` make to temporarily fix the issue?",
+        "flatCorrect": false,
+        "unionCorrect": false
+      },
+      {
+        "conversationId": "conv_02",
+        "questionIdx": 5,
+        "question": "According to `antonybudianto`, what is the recommended way to handle React dependencies when using Lerna for local testing?",
+        "flatCorrect": false,
+        "unionCorrect": false
+      },
+      {
+        "conversationId": "conv_02",
+        "questionIdx": 6,
+        "question": "What specific Webpack plugin did `mike1808` identify as the cause of multiple React instances in their vendor DLL?",
+        "flatCorrect": false,
+        "unionCorrect": false
+      },
+      {
+        "conversationId": "conv_02",
+        "questionIdx": 7,
+        "question": "What script command does `sureshsevarthi` suggest adding to `package.json` to clean up nested node_modules?",
+        "flatCorrect": true,
+        "unionCorrect": true
+      },
+      {
+        "conversationId": "conv_03",
+        "questionIdx": 0,
+        "question": "What is the issue number that this conversation is intended to address?",
+        "flatCorrect": true,
+        "unionCorrect": true
+      },
+      {
+        "conversationId": "conv_03",
+        "questionIdx": 1,
+        "question": "What specific React version is mentioned as having been released in the context of this discussion?",
+        "flatCorrect": true,
+        "unionCorrect": true
+      },
+      {
+        "conversationId": "conv_03",
+        "questionIdx": 2,
+        "question": "What is the specific problem identified with React's current `setAttribute` behavior regarding object values?",
+        "flatCorrect": true,
+        "unionCorrect": false
+      },
+      {
+        "conversationId": "conv_03",
+        "questionIdx": 3,
+        "question": "Which library is mentioned as having chosen a \".\" prefix as a sigil for properties?",
+        "flatCorrect": true,
+        "unionCorrect": false
+      },
+      {
+        "conversationId": "conv_03",
+        "questionIdx": 4,
+        "question": "What is the name of the pull request submitted by user `trusktr` to address the issue?",
+        "flatCorrect": false,
+        "unionCorrect": false
+      },
+      {
+        "conversationId": "conv_03",
+        "questionIdx": 5,
+        "question": "What are the two suggested names for an \"escape hatch\" proposed by `treshugart`?",
+        "flatCorrect": false,
+        "unionCorrect": false
+      },
+      {
+        "conversationId": "conv_03",
+        "questionIdx": 6,
+        "question": "What is the specific example of a property that does not exist as an attribute mentioned by `effulgentsia`?",
+        "flatCorrect": false,
+        "unionCorrect": false
+      },
+      {
+        "conversationId": "conv_03",
+        "questionIdx": 7,
+        "question": "What is the name of the library mentioned by `treshugart` that was used to experiment with a shim for `React.createElement`?",
+        "flatCorrect": false,
+        "unionCorrect": false
+      },
+      {
+        "conversationId": "conv_04",
+        "questionIdx": 0,
+        "question": "What syntax does basarat suggest for creating a named type inline?",
+        "flatCorrect": false,
+        "unionCorrect": true
+      },
+      {
+        "conversationId": "conv_04",
+        "questionIdx": 1,
+        "question": "According to Ryan Cavanaugh, what is a \"magic string\" workaround to create a nominal `UserId` type?",
+        "flatCorrect": true,
+        "unionCorrect": false
+      },
+      {
+        "conversationId": "conv_04",
+        "questionIdx": 2,
+        "question": "What specific type of property does zpdDG4gta8XKpMCd suggest using for branding because they are unique in TypeScript?",
+        "flatCorrect": false,
+        "unionCorrect": false
+      },
+      {
+        "conversationId": "conv_04",
+        "questionIdx": 3,
+        "question": "What issue does nahuel point out regarding the `type OrderId = number & AsOrderId` workaround?",
+        "flatCorrect": false,
+        "unionCorrect": false
+      },
+      {
+        "conversationId": "conv_04",
+        "questionIdx": 4,
+        "question": "Which V8 project does patrickjuchli mention that refers to TypeScript as a basis for its experiments?",
+        "flatCorrect": false,
+        "unionCorrect": false
+      },
+      {
+        "conversationId": "conv_04",
+        "questionIdx": 5,
+        "question": "What is the \"Branded\" type alias proposed by Ryan Cavanaugh to create nominal types?",
+        "flatCorrect": true,
+        "unionCorrect": true
+      },
+      {
+        "conversationId": "conv_04",
+        "questionIdx": 6,
+        "question": "What does svieira cite to argue that TypeScript classes are still structurally typed?",
+        "flatCorrect": false,
+        "unionCorrect": false
+      },
+      {
+        "conversationId": "conv_04",
+        "questionIdx": 7,
+        "question": "What does dead-claudia suggest using to store a nominal type definition?",
+        "flatCorrect": false,
+        "unionCorrect": true
+      },
+      {
+        "conversationId": "conv_05",
+        "questionIdx": 0,
+        "question": "What syntax does blakeembrey propose for defining exact types?",
+        "flatCorrect": false,
+        "unionCorrect": false
+      },
+      {
+        "conversationId": "conv_05",
+        "questionIdx": 1,
+        "question": "Which TypeScript feature does Ryan Cavanaugh credit with reducing the demand for exact types?",
+        "flatCorrect": false,
+        "unionCorrect": true
+      },
+      {
+        "conversationId": "conv_05",
+        "questionIdx": 2,
+        "question": "What is the purpose of the `AreSame<A, B>` type utility mentioned by multiple users?",
+        "flatCorrect": false,
+        "unionCorrect": false
+      },
+      {
+        "conversationId": "conv_05",
+        "questionIdx": 3,
+        "question": "What specific TypeScript issue number does dead-claudia reference for their constraint types proposal?",
+        "flatCorrect": false,
+        "unionCorrect": true
+      },
+      {
+        "conversationId": "conv_05",
+        "questionIdx": 4,
+        "question": "What happens to the `atom-typescript` plugin when trusktr uses `typeof` in their type definition?",
+        "flatCorrect": false,
+        "unionCorrect": false
+      },
+      {
+        "conversationId": "conv_05",
+        "questionIdx": 5,
+        "question": "According to the conversation, what is the \"incantation\" used to make a distributive conditional type non-distributive?",
+        "flatCorrect": false,
+        "unionCorrect": false
+      },
+      {
+        "conversationId": "conv_05",
+        "questionIdx": 6,
+        "question": "Which TypeScript version update does danielnmsft mention as having better checking for extra properties during assignment?",
+        "flatCorrect": false,
+        "unionCorrect": false
+      },
+      {
+        "conversationId": "conv_05",
+        "questionIdx": 7,
+        "question": "What is the URL for the `ts-strictargs` package mentioned by Kotarski?",
+        "flatCorrect": true,
+        "unionCorrect": true
+      },
+      {
+        "conversationId": "conv_06",
+        "questionIdx": 0,
+        "question": "What configuration option is suggested to mitigate slow compilation caused by libraries with many barrel re-exports?",
+        "flatCorrect": false,
+        "unionCorrect": true
+      },
+      {
+        "conversationId": "conv_06",
+        "questionIdx": 1,
+        "question": "Which two specific scripts does @timneutkens recommend for analyzing trace files?",
+        "flatCorrect": false,
+        "unionCorrect": false
+      },
+      {
+        "conversationId": "conv_06",
+        "questionIdx": 2,
+        "question": "What specific issue did @JoshApp report regarding `dev --turbo` when running inside a container?",
+        "flatCorrect": false,
+        "unionCorrect": false
+      },
+      {
+        "conversationId": "conv_06",
+        "questionIdx": 3,
+        "question": "What was the specific performance improvement reported by @Livog after updating to version 13.4.8?",
+        "flatCorrect": false,
+        "unionCorrect": false
+      },
+      {
+        "conversationId": "conv_06",
+        "questionIdx": 4,
+        "question": "What was the root cause of the 2-minute delay identified in @Livog's trace file?",
+        "flatCorrect": false,
+        "unionCorrect": false
+      },
+      {
+        "conversationId": "conv_06",
+        "questionIdx": 5,
+        "question": "Which pull request is credited with fixing the file watcher issue that caused long compile times?",
+        "flatCorrect": false,
+        "unionCorrect": false
+      },
+      {
+        "conversationId": "conv_06",
+        "questionIdx": 6,
+        "question": "What specific error did @mredigonda report regarding the `modularizeImports` feature?",
+        "flatCorrect": false,
+        "unionCorrect": false
+      },
+      {
+        "conversationId": "conv_06",
+        "questionIdx": 7,
+        "question": "What command is used to run the `trace-to-tree.mjs` script?",
+        "flatCorrect": false,
+        "unionCorrect": false
+      },
+      {
+        "conversationId": "conv_07",
+        "questionIdx": 0,
+        "question": "What workaround did Fredkiss3 suggest to force a hard navigation on a Link component?",
+        "flatCorrect": false,
+        "unionCorrect": false
+      },
+      {
+        "conversationId": "conv_07",
+        "questionIdx": 1,
+        "question": "Which specific file path did Josehower provide for a patch to disable soft navigation in Next.js 13.1.4?",
+        "flatCorrect": false,
+        "unionCorrect": false
+      },
+      {
+        "conversationId": "conv_07",
+        "questionIdx": 2,
+        "question": "What is the primary drawback of Josehower’s patch that disables soft navigation?",
+        "flatCorrect": false,
+        "unionCorrect": false
+      },
+      {
+        "conversationId": "conv_07",
+        "questionIdx": 3,
+        "question": "Which npm package does karlhorky recommend for applying patches to Next.js?",
+        "flatCorrect": false,
+        "unionCorrect": true
+      },
+      {
+        "conversationId": "conv_07",
+        "questionIdx": 4,
+        "question": "What function does timneutkens use to verify if the router should perform a hard navigation?",
+        "flatCorrect": false,
+        "unionCorrect": false
+      },
+      {
+        "conversationId": "conv_07",
+        "questionIdx": 5,
+        "question": "What is the suggested programmatic workaround to clear the Next.js client-side cache mentioned by IGassmann?",
+        "flatCorrect": false,
+        "unionCorrect": false
+      },
+      {
+        "conversationId": "conv_07",
+        "questionIdx": 6,
+        "question": "According to Fredkiss3, what behavior occurs when using `<Link prefetch={true}>` on Next.js version 13.3.1 for non-dynamic segments?",
+        "flatCorrect": false,
+        "unionCorrect": true
+      },
+      {
+        "conversationId": "conv_07",
+        "questionIdx": 7,
+        "question": "What function does byymster suggest using after a mutation to handle stale data instead of relying on a page reload?",
+        "flatCorrect": false,
+        "unionCorrect": false
+      },
+      {
+        "conversationId": "conv_08",
+        "questionIdx": 0,
+        "question": "What is the specific error message reported regarding class names?",
+        "flatCorrect": true,
+        "unionCorrect": true
+      },
+      {
+        "conversationId": "conv_08",
+        "questionIdx": 1,
+        "question": "Which specific file did a user modify to debug the `babel-plugin-styled-components` hot reload issue?",
+        "flatCorrect": false,
+        "unionCorrect": false
+      },
+      {
+        "conversationId": "conv_08",
+        "questionIdx": 2,
+        "question": "What common configuration file error did user `jordykoppen` identify as a cause for the issue?",
+        "flatCorrect": false,
+        "unionCorrect": false
+      },
+      {
+        "conversationId": "conv_08",
+        "questionIdx": 3,
+        "question": "Which version of `styled-components` did user `JohnGrisham` suggest might solve the issue?",
+        "flatCorrect": false,
+        "unionCorrect": false
+      },
+      {
+        "conversationId": "conv_08",
+        "questionIdx": 4,
+        "question": "What specific `babel-plugin-styled-components` version did users `maktouch` and `giovannabadaro` report as a fix?",
+        "flatCorrect": false,
+        "unionCorrect": false
+      },
+      {
+        "conversationId": "conv_08",
+        "questionIdx": 5,
+        "question": "What configuration settings are recommended for the `styled-components` plugin in `.babelrc` to support SSR?",
+        "flatCorrect": false,
+        "unionCorrect": true
+      },
+      {
+        "conversationId": "conv_08",
+        "questionIdx": 6,
+        "question": "What alternative to `withStyles` did user `brianpunzalan` use to fix the issue in Material UI?",
+        "flatCorrect": false,
+        "unionCorrect": false
+      },
+      {
+        "conversationId": "conv_08",
+        "questionIdx": 7,
+        "question": "What workaround did user `JorgeSivil` propose to avoid the class name mismatch?",
+        "flatCorrect": false,
+        "unionCorrect": false
+      },
+      {
+        "conversationId": "conv_09",
+        "questionIdx": 0,
+        "question": "What are the two proposed API names for creating buffers that distinguish between safe and uninitialized memory?",
+        "flatCorrect": true,
+        "unionCorrect": true
+      },
+      {
+        "conversationId": "conv_09",
+        "questionIdx": 1,
+        "question": "What is the specific performance regression percentage observed by user silverwind when using `.fill()` on small buffers?",
+        "flatCorrect": false,
+        "unionCorrect": false
+      },
+      {
+        "conversationId": "conv_09",
+        "questionIdx": 2,
+        "question": "Which Node.js versions does mscdex specifically mention when discussing the backporting of safe and unsafe methods?",
+        "flatCorrect": false,
+        "unionCorrect": true
+      },
+      {
+        "conversationId": "conv_09",
+        "questionIdx": 3,
+        "question": "What is the PR number opened by jasnell to provide an initial implementation for the new buffer APIs?",
+        "flatCorrect": false,
+        "unionCorrect": false
+      },
+      {
+        "conversationId": "conv_09",
+        "questionIdx": 4,
+        "question": "According to feross, what is the relationship between the `Buffer` class and `Uint8Array` in modern Node.js?",
+        "flatCorrect": false,
+        "unionCorrect": false
+      },
+      {
+        "conversationId": "conv_09",
+        "questionIdx": 5,
+        "question": "What is the primary security concern raised regarding the current `new Buffer(number)` constructor?",
+        "flatCorrect": true,
+        "unionCorrect": true
+      },
+      {
+        "conversationId": "conv_09",
+        "questionIdx": 6,
+        "question": "Why does trevnorris argue that the discussion about zeroing out memory in Node core is \"mostly moot\"?",
+        "flatCorrect": false,
+        "unionCorrect": false
+      },
+      {
+        "conversationId": "conv_09",
+        "questionIdx": 7,
+        "question": "What specific Go language feature does gergoerdosi cite as a precedent for using the term \"unsafe\" in method naming?",
+        "flatCorrect": false,
+        "unionCorrect": false
+      },
+      {
+        "conversationId": "conv_10",
+        "questionIdx": 0,
+        "question": "What GitHub issue is referenced as the primary thread to check for existing arguments before commenting?",
+        "flatCorrect": true,
+        "unionCorrect": false
+      },
+      {
+        "conversationId": "conv_10",
+        "questionIdx": 1,
+        "question": "What specific syntax does user `Pauan` express dislike for when branching on a future that returns a result?",
+        "flatCorrect": false,
+        "unionCorrect": false
+      },
+      {
+        "conversationId": "conv_10",
+        "questionIdx": 2,
+        "question": "Which procedural macro does `novacrazy` suggest as an alternative to a \"magical keyword\" for transforming async functions?",
+        "flatCorrect": false,
+        "unionCorrect": false
+      },
+      {
+        "conversationId": "conv_10",
+        "questionIdx": 3,
+        "question": "What specific syntax does `yazaddaruvala` propose for awaiting a result in an assignment?",
+        "flatCorrect": false,
+        "unionCorrect": false
+      },
+      {
+        "conversationId": "conv_10",
+        "questionIdx": 4,
+        "question": "What is the specific macro-based syntax suggested by `ivandardi` and `L-as` as a temporary solution before deciding on a postfix version?",
+        "flatCorrect": false,
+        "unionCorrect": false
+      },
+      {
+        "conversationId": "conv_10",
+        "questionIdx": 5,
+        "question": "What alternative keyword does `I60R` propose as a replacement for `await`?",
+        "flatCorrect": false,
+        "unionCorrect": false
+      },
+      {
+        "conversationId": "conv_10",
+        "questionIdx": 6,
+        "question": "What specific postfix operator does `ben0x539` suggest using to represent a pause in anticipation of a result?",
+        "flatCorrect": false,
+        "unionCorrect": false
+      },
+      {
+        "conversationId": "conv_10",
+        "questionIdx": 7,
+        "question": "Which user proposes the `future@await` syntax as an alternative to other postfix proposals?",
+        "flatCorrect": false,
+        "unionCorrect": true
+      },
+      {
+        "conversationId": "conv_11",
+        "questionIdx": 0,
+        "question": "What is the tracking issue number for `try_trait_v2`?",
+        "flatCorrect": false,
+        "unionCorrect": false
+      },
+      {
+        "conversationId": "conv_11",
+        "questionIdx": 1,
+        "question": "Which RFC number is mentioned as a previous example of the `catch` keyword discussion?",
+        "flatCorrect": false,
+        "unionCorrect": false
+      },
+      {
+        "conversationId": "conv_11",
+        "questionIdx": 2,
+        "question": "What specific limitation did japaric note regarding their initial implementation of the `?` operator?",
+        "flatCorrect": false,
+        "unionCorrect": true
+      },
+      {
+        "conversationId": "conv_11",
+        "questionIdx": 3,
+        "question": "What does mitsuhiko suggest using to build a readable stacktrace for `Result` types?",
+        "flatCorrect": false,
+        "unionCorrect": false
+      },
+      {
+        "conversationId": "conv_11",
+        "questionIdx": 4,
+        "question": "Which URL does eddyb point to as an example of compiler-emitted panics?",
+        "flatCorrect": false,
+        "unionCorrect": false
+      },
+      {
+        "conversationId": "conv_11",
+        "questionIdx": 5,
+        "question": "What is the name of the trait Stebalien proposes for handling the `?` operator logic?",
+        "flatCorrect": true,
+        "unionCorrect": true
+      },
+      {
+        "conversationId": "conv_11",
+        "questionIdx": 6,
+        "question": "Which RFC number did nrc open to discuss the `Carrier` trait?",
+        "flatCorrect": true,
+        "unionCorrect": true
+      },
+      {
+        "conversationId": "conv_11",
+        "questionIdx": 7,
+        "question": "According to steveklabnik, why is the term \"implicit return\" incorrect when describing Rust function bodies?",
+        "flatCorrect": false,
+        "unionCorrect": false
+      },
+      {
+        "conversationId": "conv_12",
+        "questionIdx": 0,
+        "question": "What is the specific error message reported in the logs when the application enters the \"flickering\" state?",
+        "flatCorrect": true,
+        "unionCorrect": true
+      },
+      {
+        "conversationId": "conv_12",
+        "questionIdx": 1,
+        "question": "Which Flutter version was the first to report this flickering issue?",
+        "flatCorrect": false,
+        "unionCorrect": true
+      },
+      {
+        "conversationId": "conv_12",
+        "questionIdx": 2,
+        "question": "What specific user gesture is frequently cited as a trigger for the flickering/freezing issue on iPhones?",
+        "flatCorrect": true,
+        "unionCorrect": true
+      },
+      {
+        "conversationId": "conv_12",
+        "questionIdx": 3,
+        "question": "What is the name of the GitHub repository provided by user akindone to reproduce the issue?",
+        "flatCorrect": false,
+        "unionCorrect": true
+      },
+      {
+        "conversationId": "conv_12",
+        "questionIdx": 4,
+        "question": "Which specific iOS version was mentioned by user abdulrehmank7 when reporting the issue?",
+        "flatCorrect": false,
+        "unionCorrect": false
+      },
+      {
+        "conversationId": "conv_12",
+        "questionIdx": 5,
+        "question": "Does the flickering issue persist in Flutter 3.0.0?",
+        "flatCorrect": true,
+        "unionCorrect": false
+      },
+      {
+        "conversationId": "conv_12",
+        "questionIdx": 6,
+        "question": "What did user knopp observe regarding the reproducibility of the issue between Flutter stable and master channels?",
+        "flatCorrect": false,
+        "unionCorrect": false
+      },
+      {
+        "conversationId": "conv_12",
+        "questionIdx": 7,
+        "question": "What specific hardware/device model did user intelryzen identify as being affected by this issue?",
+        "flatCorrect": false,
+        "unionCorrect": false
+      }
+    ]
+  },
+  "h2": {
+    "totalAppends": 1440,
+    "p50": 1841.2775409999886,
+    "p95": 3415.845542000141,
+    "p99": 4209.625875000027,
+    "max": 31577.46383399982,
+    "mergeAppends": 960,
+    "mergeP95": 3621.880957999965,
+    "pass": false
+  },
+  "h3": {
+    "flat": {
+      "calls": 24,
+      "inputTokens": 125075,
+      "outputTokens": 17964,
+      "total": 143039
+    },
+    "unionFind": {
+      "calls": 960,
+      "inputTokens": 3543410,
+      "outputTokens": 261807,
+      "total": 3805217
+    },
+    "ratio": 26.602653821684996,
+    "pass": false
+  }
+}

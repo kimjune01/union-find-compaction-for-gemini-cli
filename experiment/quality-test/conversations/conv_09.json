@@ -1,0 +1,1263 @@
+{
+  "source": "github",
+  "repo": "nodejs/node",
+  "issue_number": 4660,
+  "title": "Buffer(number) is unsafe",
+  "url": "https://github.com/nodejs/node/issues/4660",
+  "messages": [
+    {
+      "role": "user",
+      "author": "feross",
+      "body": "### tl;dr\n\nThis issue proposes:\n1. Change `new Buffer(number)` to return safe, zeroed-out memory\n2. Create a new API for creating uninitialized Buffers, `Buffer.alloc(number)`\n### Update: Jan 15, 2016\n\nUpon further consideration, I think that returning zeroed out memory is a separate issue. The core issue is: unsafe buffer allocation should be in a different API.\n\nI now support adding two APIs:\n- `Buffer.from(value)` - convert from any type to a buffer\n- `Buffer.alloc(size)` - create an uninitialized buffer with given size\n\nThis solves the core problem that affected `ws` and `bittorrent-dht` which is `Buffer(variable)` getting tricked into taking a number argument.\n### Why is `Buffer` unsafe?\n\nToday, the node.js `Buffer` constructor is overloaded to handle many different argument types like `String`, `Array`, `Object`, `TypedArrayView` (`Uint8Array`, etc.), `ArrayBuffer`, and also `Number`.\n\nThe API is optimized for convenience: you can throw any type at it, and it will try to do what you want.\n\nBecause the Buffer constructor is so powerful, you often see code like this:\n\n``` js\n// Convert UTF-8 strings to hex\nfunction toHex (str) {\n  return new Buffer(str).toString('hex')\n}\n```\n\n**_But what happens if `toHex` is called with a `Number` argument?**_\n### Remote Memory Disclosure\n\nIf an attacker can make your program call the `Buffer` constructor with a `Number` argument, then they can make it allocate uninitialized memory from the node.js process. This could potentially disclose TLS private keys, user data, or database passwords.\n\nWhen the `Buffer` constructor is passed a `Number` argument, it returns an **UNINITIALIZED** block of memory of the specified `size`. When you create a `Buffer` like this, you **MUST** overwrite the contents before returning it to the user.\n### Would this ever be a problem in real code?\n\nYes. It's surprisingly common to forget to check the type of your variables in a dynamically-typed language like JavaScript.\n\nUsually the consequences of assuming the wrong type is that your program crashes with an uncaught exception. But the failure mode for forgetting to check the type of arguments to the `Buffer` constructor is more catastrophic.\n\nHere's an example of a vulnerable service that takes a JSON payload and converts it to hex:\n\n``` js\n// Take a JSON payload {str: \"some string\"} and convert it to hex\nvar server = http.createServer(function (req, res) {\n  var data = ''\n  req.setEncoding('utf8')\n  req.on('data', function (chunk) {\n    data += chunk\n  })\n  req.on('end', function () {\n    var body = JSON.parse(data)\n    res.end(new Buffer(body.str).toString('hex'))\n  })\n})\n\nserver.listen(8080)\n```\n\nIn this example, an http client just has to send:\n\n``` json\n{\n  \"str\": 1000\n}\n```\n\nand it will get back 1,000 bytes of uninitialized memory from the server.\n\nThis is a very serious bug. It's similar in severity to the [the Heartbleed bug](http://heartbleed.com/) that allowed disclosure of OpenSSL process memory by remote attackers.\n### Which real-world packages were vulnerable?\n#### [`bittorrent-dht`](https://www.npmjs.com/package/bittorrent-dht)\n\n@mafintosh and I found this issue in one of our own packages, [`bittorrent-dht`](https://www.npmjs.com/package/bittorrent-dht). The bug would allow anyone on the internet to send a series of messages to a user of `bittorrent-dht` and get them to reveal 20 bytes at a time of uninitialized memory from the node.js process.\n\nHere's [the commit](https://github.com/feross/bittorrent-dht/commit/6c7da04025d5633699800a99ec3fbadf70ad35b8) that fixed it. We released a new fixed version, created a [Node Security Project disclosure](https://nodesecurity.io/advisories/68), and deprecated all vulnerable versions on npm so users will get a warning to upgrade to a newer version.\n#### [`ws`](https://www.npmjs.com/package/ws)\n\nThat got us wondering if there were other vulnerable packages. Sure enough, within a short period of time, we found the same issue in [`ws`](https://www.npmjs.com/package/ws), the most popular WebSocket implementation in node.js.\n\nIf certain APIs were called with `Number` parameters instead of `String` or `Buffer` as expected, then uninitialized server memory would be disclosed to the remote peer.\n\nThese were the vulnerable methods:\n\n``` js\nsocket.send(number)\nsocket.ping(number)\nsocket.pong(number)\n```\n\nHere's a vulnerable socket server with some echo functionality:\n\n``` js\nserver.on('connection', function (socket) {\n  socket.on('message', function (message) {\n    message = JSON.parse(message)\n    if (message.type === 'echo') {\n      socket.send(message.data) // send back the user's message\n    }\n  })\n})\n```\n\n`socket.send(number)` called on the server, will disclose server memory.\n\nHere's [the release](https://github.com/websockets/ws/releases/tag/1.0.1) where the issue was fixed, with a more detailed explanation. Props to @3rd-Eden for the quick fix. Here's the [Node Security Project disclosure](https://nodesecurity.io/advisories/67).\n### What's the solution?\n\nIt's important that node.js offers a fast way to get memory otherwise performance-critical applications would needlessly get a lot slower.\n\nBut we need a better way to _signal our intent_ as programmers. **When we want uninitialized memory, we should request it explicitly.**\n\nSensitive functionality should not be packed into a developer-friendly API that loosely accepts many different types. This type of API encourages the lazy practice of passing variables in without checking the type very carefully.\n#### `Buffer.alloc(number)`\n\nThe functionality of creating buffers with uninitialized memory should be part of another API. We propose `Buffer.alloc(number)`. This way, it's not part of an API that frequently gets user input of all sorts of different types passed into it.\n\n``` js\nvar buf = Buffer.alloc(16) // careful, uninitialized memory!\n\n// Immediately overwrite the uninitialized buffer with data from another buffer\nfor (var i = 0; i < buf.length; i++) {\n  buf[i] = otherBuf[i]\n}\n```\n### How do we fix node.js core?\n\nWe sent [a PR](https://github.com/nodejs/node/pull/4514) (merged as `semver-major`) which defends against one case:\n\n``` js\nvar str = 16\nnew Buffer(str, 'utf8')\n```\n\nIn this situation, it's implied that the programmer intended the first argument to be a string, since they passed an encoding as a second argument. Today, node.js will allocate uninitialized memory in the case of `new Buffer(number, encoding)`, which is probably not what the programmer intended.\n\nBut this is only a partial solution, since if the programmer does `new Buffer(variable)` (without an `encoding` parameter) there's no way to know what they intended. If `variable` is sometimes a number, then uninitialized memory will sometimes be returned.\n### What's the real long-term fix?\n\nWe could deprecate and remove `new Buffer(number)` and use `Buffer.alloc(number)` when we need uninitialized memory. But that would break 1000s of packages. So that's a no-go.\n\nInstead, we believe the best solution is to:\n1. Change `new Buffer(number)` to return safe, zeroed-out memory\n2. Create a new API for creating uninitialized Buffers. We propose: `Buffer.alloc(number)`\n\nThis way, existing code continues working and the impact on the npm ecosystem will be minimal. Over time, npm maintainers can migrate performance-critical code to use `Buffer.alloc(number)` instead of `new Buffer(number)`.\n### Conclusion\n\nWe think there's a serious design issue with the `Buffer` API as it exists today. It promotes insecure software by putting high-risk functionality into a convenient API with friendly \"developer ergonomics\".\n\nThis wasn't merely a theoretical exercise because we found the issue in some of the most popular npm packages.\n\nEventually, we hope that node.js core can switch to this new, safer behavior. We believe the impact on the ecosystem would be minimal since it's not a breaking change. Well-maintained, popular packages would be updated to use `Buffer.alloc` quickly, while older, insecure packages would magically become safe from this attack vector.",
+      "created_at": "2016-01-13T05:19:14Z"
+    },
+    {
+      "role": "user",
+      "author": "feross",
+      "body": "For those interested in getting the new behavior we propose without a change to node core, we published a user-land package: [`safe-buffer`](https://github.com/feross/safe-buffer).\n",
+      "created_at": "2016-01-13T05:33:03Z"
+    },
+    {
+      "role": "user",
+      "author": "JacksonTian",
+      "body": "Now, the new Buffer(number, encoding) will throw exception, detail is here: https://github.com/nodejs/node/commit/3b27dd5ce15942a054904b26e3dca295806038d8 . I introduce a new API Buffer.encode() for encoding case.\n",
+      "created_at": "2016-01-13T05:49:47Z"
+    },
+    {
+      "role": "user",
+      "author": "rvagg",
+      "body": "You could make similar arguments about `child_process` being [unsafe](https://code.google.com/p/google-security-research/issues/detail?id=693), about loading native addons being unsafe, even about `fs` being unsafe. The more bubble-wrap we put in core, the more users are likely to make the false assumption that programming in Node.js is like programming in the browser, which it absolutely is not. That's not a -1 to this proposal (in fact, this exact discussion is an ongoing on that keeps on coming up, we have an active thread in the security repo to thrash this out too), just a word of caution because we keep on having discussions like this where we want to move closer to a sandbox but that will never be the case for Node and it would be even more unsafe to lull users into the perception that they are as protected as in the browser (there's a very good chance that's exactly what happened to [TrendMicro](https://code.google.com/p/google-security-research/issues/detail?id=693)).\n\nIt should be noted that the primary reason for not zero-filling by default is performance. So `new Buffer()` should be considered a form of `malloc()`. In the past, it has been demonstrated that allocating filled memory has significant performance penalties to a plain `malloc()`. I keep on suggesting that those who are advocating switching the default to a clean allocation should do some benchmarking to demonstrate what kind of impact it might have. Otherwise, this argument is dead-in-the-water because the \"it's faster\" argument currently holds this one in place.\n",
+      "created_at": "2016-01-13T06:07:02Z"
+    },
+    {
+      "role": "user",
+      "author": "trevnorris",
+      "body": "This discussion has been had several times in the last few weeks.\n\nIf a \"high-risk functionality\" application doesn't have proper type checking in place then it already has a security issue. This problem can't be dished into Buffer as if it's at fault.\n\nNot zero filling the Buffer is completely a performance issue, but the impact on performance is more than trivial. Even at allocations as low as 1KB. And while this type of impact probably wouldn't harm your standard web app, it can noticeably affect performance of a node process.\n\nThe concern is when a number is passed when something else is expected. Again this is a bug in the developers code, and TBH it doesn't make much sense to impact the performance of the many modules out there today and force them to update their code to use new syntax because of that.\n\nAnd let's be honest, in the years that Buffer has worked exactly this way how many times has this been reportedly seen as an issue in the wild. The only reason you're here now is because it affected modules you were directly involved with. \n",
+      "created_at": "2016-01-13T06:25:26Z"
+    },
+    {
+      "role": "user",
+      "author": "feross",
+      "body": "@rvagg @trevnorris You both raise good points. Node is not the browser, and performance is critical.\n\nThe difference with modules like `child_process` and `fs` is that they're very obviously doing powerful and sensitive operations. Even the most trivial use of them will confront the developer with the fact that they're interacting with their OS on a low level and need to be careful.\n\n`Buffer` is different. 95% of the time, it's safe and idiot-proof. 5% of the time you need to be very, very careful.\n\nYou can pass in:\n- `Array` –> _safe_\n- `Buffer` –> _safe_\n- `ArrayBuffer` –> _safe_\n- `Uint8Array` –> _safe_\n- `Uint16Array` –> _safe_\n- the rest of the typed array types –> _safe_\n- Any array-like –> _safe_\n- `Object` (reverse of `.toJSON()`) –> _safe_\n- `String` –> _safe_\n- `Number` –> **_SURPRISE! REMOTE MEMORY DISCLOSURE!**_\n\nThe API seems like it's trying to lay a trap for the user.\n\nLook at the contributors on each of those repos. Some of the most talented node.js developers looked at this code extensively and didn't notice this issue for years.\n",
+      "created_at": "2016-01-13T06:44:45Z"
+    },
+    {
+      "role": "user",
+      "author": "feross",
+      "body": "> And while this type of impact probably wouldn't harm your standard web app, it can noticeably affect performance of a node process.\n\nTo be clear, I'm not suggesting that node core should use zeroed-out buffers. It would continue using unallocated buffers, but that functionality would move to a different API away from the one that looks and behaves (and now actually is) a `Uint8Array`.\n",
+      "created_at": "2016-01-13T06:47:24Z"
+    },
+    {
+      "role": "user",
+      "author": "mscdex",
+      "body": "-1 to changing `new Buffer(number)` to zero-out by default. Even if there was a separate API to preserve the behavior, that means a lot of code change for a lot of packages and application code. I'd personally be more open to a _separate_ method that created zeroed-out Buffers, that way it's an explicit opt-in and you are (or should be) at that point aware of the tradeoff you're making.\n",
+      "created_at": "2016-01-13T06:58:38Z"
+    },
+    {
+      "role": "user",
+      "author": "ChALkeR",
+      "body": "> separate method that created zeroed-out Buffers\n\nThat would not fix anything, there is already a `new Buffer(number).fill(0)`.\n",
+      "created_at": "2016-01-13T06:59:29Z"
+    },
+    {
+      "role": "user",
+      "author": "silverwind",
+      "body": "I see around 20-25% perf regression using `.fill()` on small buffers (on ARM here):\n\n```\nnode -e \"for(var i = 1e6; i >= 0; i--) Buffer(1e3)\"  6.16s user 0.19s system 100% cpu 6.287 total\nnode -e \"for(var i = 1e6; i >= 0; i--) Buffer(1e3)\"  6.10s user 0.19s system 101% cpu 6.222 total\nnode -e \"for(var i = 1e6; i >= 0; i--) Buffer(1e3)\"  5.97s user 0.17s system 101% cpu 6.074 total\n```\n\n```\nnode -e \"for(var i = 1e6; i >= 0; i--) Buffer(1e3).fill()\"  8.41s user 0.16s system 100% cpu 8.504 total\nnode -e \"for(var i = 1e6; i >= 0; i--) Buffer(1e3).fill()\"  7.89s user 0.14s system 100% cpu 7.968 total\nnode -e \"for(var i = 1e6; i >= 0; i--) Buffer(1e3).fill()\"  7.94s user 0.24s system 100% cpu 8.111 total\n```\n",
+      "created_at": "2016-01-13T07:04:57Z"
+    },
+    {
+      "role": "user",
+      "author": "feross",
+      "body": "> I see around 20-25% perf regression using `.fill()` on small buffers\n\nNice.\n\nRemember too, this is not a 20-25% perf regression across the board. It's only going to apply when all of these conditions are true:\n- it's user-land code\n- they're calling `new Buffer(number)` because they need uninitialized memory\n- and, they don't upgrade to `Buffer.alloc()`\n\nNode.js core would not be slower. Uses of `new Buffer(string)`, `new Buffer(array)`, etc. would not be slower.\n",
+      "created_at": "2016-01-13T07:20:47Z"
+    },
+    {
+      "role": "user",
+      "author": "silverwind",
+      "body": "I think I'm in support of this, but I'm not aware of all the use cases for `Buffer(number)`, so take that with a grain of salt.\n\nInstead of introducing new API, how about an opt-in?\n\n``` js\nBuffer(100); // safe\nBuffer.unsafe = true;\nBuffer(100); // unsafe\n```\n",
+      "created_at": "2016-01-13T07:29:42Z"
+    },
+    {
+      "role": "user",
+      "author": "okdistribute",
+      "body": "Thanks feross for explaining this well, I learned something tonight! I am relatively new to Node - I gained my open source chops in Python land. In Python, slow performance is sort of a given. If you want to make a Python program more performant, you can optimize it in certain ways, which are well known. Performance then is an advanced problem. The old adage \"make it work, then make it fast\" works well for these kinds of dynamic, interpreted languages. After all, we are not writing in C here, and the beauty of languages like Node and Python is the ease with which external, more performant packages can be accessed when necessary. \n\n20-25% is actually quite a lot slower, true -- but how many calls to Buffer are using Buffer(Number) _and_ require high performance? It seems as though this being fixed in core will bring great gratitude from newcomers and old hats alike. As a relatively new node programmer, I am certainly grateful - my memory won't be stolen! \n",
+      "created_at": "2016-01-13T08:48:18Z"
+    },
+    {
+      "role": "user",
+      "author": "finnp",
+      "body": "I generally agree that the API is problematic.\n\nI just want to point out, that fixing `Buffer` to be zero-filled potentially introduces security risks to code that would use the constructor to get some entropy. Consider this (arguably badly coded) example, where someone might use it instead of `crypto.randomBytes`.\n\n``` js\nvar someEntropy = (new Buffer(256)).toString('hex')\n```\n\nUpdating to a new node major version with the proposed new Buffer API would not break the code, but would introduce (an even higher) security risk to that code, without the user noticing right away.\n\nI just wanted to point that out for the sake of argument.\n",
+      "created_at": "2016-01-13T09:25:16Z"
+    },
+    {
+      "role": "user",
+      "author": "mcollina",
+      "body": "@finnp that API is so insecure that I would flag it as a security vulnerability, for the same assumption of this PR.\n\nSo, I'm :-1: on anything that make node (or apps that runs on node) slower. However, I see the security vulnerability.\n\nMy gut tells me: let's benchmark this change in node. Let's benchmark this change in userland (all the popular modules have benchmarks), and let's see where we stand. Does express gets slower? or Hapi? or socket.io? To what degree?\n\nI think the problem is that `malloc` and encodings should not be on the same API. I propose to deprecate anything that is not `new Buffer(number)`, and prepare a factory method for all the other cases. `new Buffer(number)` will stay like malloc, and we migrate all users to a safe API, that does not support the `'number'` argument.\n",
+      "created_at": "2016-01-13T10:12:57Z"
+    },
+    {
+      "role": "user",
+      "author": "steve-gray",
+      "body": "I think anyone depending on that kind of buffer entropy is already walking in the land of the undocumented, and the security risk represented by the issue versus the pretty modest performance ding make this one a no brainer. To put this back into a C context, returning memory without a memset in response to a 'client' request is effectively insanity.\n",
+      "created_at": "2016-01-13T10:17:04Z"
+    },
+    {
+      "role": "user",
+      "author": "joepie91",
+      "body": "+1 on making uninitialized Buffer creation a separate function in the API, and removing it from the \"type-guessing\" constructor, or replacing it with a 'safe' variant. This kind of potentially dangerous functionality should be explicitly opt-in.\n\nI'm not sure why there's any discussion about it at all, to be honest. It's well understood that having safe defaults considerably decreases the chance of vulnerabilities, and moving uninitialized creation to a separate function would not incur any performance issues for maintained code (because they can simply use the new function if they know what they are doing, and actually intend uninitialized creation).\n\nThe unmaintained code would not receive security patches anyway, and in those cases a slowdown is better than an outright vulnerability. Node.js, as a project that follows semantic versioning, is in a fairly unique position to actually be able to make such patches without widespread ecosystem breakage.\n\n> @silverwind: Instead of introducing new API, how about an opt-in?\n\nI would vote against a global opt-in. It doesn't _really_ fix the problem (as a single intended opt-in means your entire codebase is now unprotected), while still introducing the same kind of break. That, plus global state gets messy in general.\n\n> @trevnorris: The concern is when a number is passed when something else is expected. Again this is a bug in the developers code, and TBH it doesn't make much sense to impact the performance of the many modules out there today and force them to update their code to use new syntax because of that.\n\nIt absolutely does. Safe defaults are the single most important thing a language/runtime can possibly provide for fostering a secure ecosystem around it. No matter how competent people are, _they make mistakes_, and the amount of possibly footguns should be reduced to an absolute minimum. The code change would be trivial, and provide significant security gains.\n\n> @trevnorris: And let's be honest, in the years that Buffer has worked exactly this way how many times has this been reportedly seen as an issue in the wild. The only reason you're here now is because it affected modules you were directly involved with.\n\nObservance of security issues does not correlate to severity or how badly they need to be solved. Not to mention that you have _no idea_ whether this has been discovered (and exploited) in the wild or not, nor any way to check, nor would the perpetrators have any reason to disclose as such.\n\nThe security community has spent several decades now understanding how to assess the severity of a security issue and how to prevent common issues, and it would probably be advisable to work from that knowledge, rather than repeating that entire process again in the Node.js community and exposing many users to danger in the process.\n\n> @mscdex: I'd personally be more open to a separate method that created zeroed-out Buffers, that way it's an explicit opt-in and you are (or should be) at that point aware of the tradeoff you're making.\n\nSecure opt-ins don't work. See also [this](https://en.wikipedia.org/wiki/Principle_of_least_astonishment) and the general principle of people following the path of least resistance.\n",
+      "created_at": "2016-01-13T11:13:18Z"
+    },
+    {
+      "role": "user",
+      "author": "ChALkeR",
+      "body": "While I first thought that making `Buffer(number)` zero-filled by default is a good idea, I do not think that now. Imo it should better be deprecated and replaced by two separate methods.\n\nMaking `Buffer(number)` zero-filled _will_ solve the issue long-term, but will cause havoc short-term. For example, if Alice writes a lib, sees that with Node.js 6.x, 7.x etc `Buffer(number)` is zero-filled, and _does not_ zero-fill the buffer in her code (she doesn't want to zero-fill it twice!), and Bob uses that lib under Node.js 5.x where Buffer is not zero-filled by default — it will cause more damage that it solves.\n\nDocumenting that in a way «zero-fills since 6.x, zero-fill it twice if you use a lower version» would not help, Alice could think «I don't need 5.x» and publish a lib that does not manually zero-fill `Buffers`, but some other person could use that lib under 5.x and will be affected. There is no way around that — if `Buffer(number)` becomes zero-filled by default, the user will have to choose between zero-filling it two times in newer versions of Node.js or not zero-filling it at all in less recent versions of Node.js (and the third option would be — write some ugly version-detection code). Guess what will the user choose?\n\nAlternate proposal:\n1. Introduce `Buffer.allocateRaw(number)` to allocate a non-zero filled `Buffer`, document it, try hard to note the possible security consequences of careless usage.\n2. Introduce `Buffer.allocate(number)` to allocate a zero-filled `Buffer`.\n3. Soft-deprecate `Buffer(number)` (first in doc for at least a whole major release, perhaps), tell people to use `Buffer.allocate(number)` instead.\n4. Introduce a command-line flag for opt-in to zero-filling all `Buffer(number)` calls, so that the topmost app could enforce zero-filling all Buffers. I think this point was already discussed and supported.\n5. Hard-deprecate `Buffer(number)`, point people to `Buffer.allocate(number)`. Perhaps make `Buffer(number)` zero-filled by default at the same time (but don't let people rely on that) and remove the command-line flag, because it being hard-deprecated would mean that the usage is low and no new code is expected to use that.\n\nThoughts?\n\nThis will also solve unintentional calls to `Buffer(number)` when a person wanted to call `Buffer('200')` instead (and called `Buffer(200)`).\n",
+      "created_at": "2016-01-13T11:40:09Z"
+    },
+    {
+      "role": "user",
+      "author": "ChALkeR",
+      "body": "@finnp Anyone who uses the code you provided is already doomed.\n",
+      "created_at": "2016-01-13T12:06:43Z"
+    },
+    {
+      "role": "user",
+      "author": "vkurchatkin",
+      "body": "At this point it's easier just to soft-deprecate `Buffer` altogether and encourage devs to use typed arrays instead.\n",
+      "created_at": "2016-01-13T12:13:08Z"
+    },
+    {
+      "role": "user",
+      "author": "mcollina",
+      "body": "> At this point it's easier just to soft-deprecate Buffer altogether and encourage devs to use typed arrays instead.\n\nI think this is even harder than changing Buffer api, as Buffer is part of the Stream API, and also a lot of C++ code.\n",
+      "created_at": "2016-01-13T12:33:52Z"
+    },
+    {
+      "role": "user",
+      "author": "ChALkeR",
+      "body": "@vkurchatkin `Buffer(number)` has much lower usage than general `Buffer`, plus the perfomance concerns of `Buffer` vs typed arrays. Let's be realistic here and let's try to solve this somehow. Deprecating `Buffer`, if that would ever happen, will take long time.\n",
+      "created_at": "2016-01-13T12:45:25Z"
+    },
+    {
+      "role": "user",
+      "author": "vkurchatkin",
+      "body": "> I think this is even harder than changing Buffer api, as Buffer is part of the Stream API, and also a lot of C++ code.\n\nit shouldn't be that hard to change, since Buffers ARE typed arrays now.\n\n@ChALkeR \n\n> plus the perfomance concerns of Buffer vs typed arrays\n\nThe only concern is instantiation. We can still provide a function to create uninitialized typed array or array buffer.\n\n> Let's be realistic here and let's try to solve this somehow. Deprecating Buffer, if that would ever happen, will take long time.\n\nI mean not really deprecating them, but discouraging and maybe eventually removing from docs.\n",
+      "created_at": "2016-01-13T13:03:49Z"
+    },
+    {
+      "role": "user",
+      "author": "jasnell",
+      "body": "I'm +1 on the general approach @ChALkeR suggests in https://github.com/nodejs/node/issues/4660#issuecomment-171262864 \n\nBy introducing two new alternative factory functions (one safe, one unsafe) and deprecating the current unsafe constructor, we ensure that existing code isn't adversely affected while giving new code an appropriate path forward. Changing the expected behavior of the Buffer constructor or even deprecating Buffer altogether does not address all of the requirements here. \n\nOne tweak I would make to @ChALkeR's suggestion is: instead of `allocate` and `allocateRaw`, I would use `allocateSafe` and `allocateUnsafe`, to make sure it's _clearly_ indicated that there is a safety/security choice being made.\n",
+      "created_at": "2016-01-13T15:53:20Z"
+    },
+    {
+      "role": "user",
+      "author": "Fishrock123",
+      "body": "Some comments, in no particular order:\n\n> At this point it's easier just to soft-deprecate `Buffer` altogether and encourage devs to use typed arrays instead.\n\n@vkurchatkin Except that `Buffer` has extra APIs that make it more useful both to core and userland.\n\n> 20-25% is actually quite a lot slower, true -- but how many calls to Buffer are using Buffer(Number) and require high performance? It seems as though this being fixed in core will bring great gratitude from newcomers and old hats alike. As a relatively new node programmer, I am certainly grateful - my memory won't be stolen!\n\n@karissa Core's are probably most important, but if you are, say, running a heavy realtime websocket application, and `ws` were using zero-filled buffers for everything, you'd likely loose a lot of throughput.\n\n> In Python, slow performance is sort of a given. If you want to make a Python program more performant, you can optimize it in certain ways, which are well known. Performance then is an advanced problem. The old adage \"make it work, then make it fast\" works well for these kinds of dynamic, interpreted languages.\n\nPython is a tricky comparison because the language just comes with everything. Sure, we expect JavaScript to not execute as fast as C, or even Java, but in Node, being able to achieve high throughput of I/O operations is pretty darn important. That's what we do in a nutshell after all.\n\n> Secure opt-ins don't work. See also [this](https://en.wikipedia.org/wiki/Principle_of_least_astonishment) and the general principle of people following the path of least resistance.\n\nI would generally agree with this.\n\n> Alternate proposal:\n> 1. Introduce `Buffer.allocateRaw(number)` to allocate a non-zero filled `Buffer`, document it, try hard to note the possible security consequences of careless usage.\n> 2. Introduce `Buffer.allocate(number)` to allocate a zero-filled `Buffer`.\n> 3. Soft-deprecate `Buffer(number)` (first in doc for at least a whole major release), tell people to use `Buffer.allocate(number)` instead.\n> 4. Introduce a command-line flag for opt-in to zero-filling all `Buffer(number)` calls, so that the topmost app could enforce zero-filling all Buffers. I think this point was already discussed and supported.\n> 5. Hard-deprecate `Buffer(number)`, point people to `Buffer.allocate(number)`. Perhaps make `Buffer(number)` zero-filled by default at the same time (but don't let people rely on that) and remove the command-line flag, because it being hard-deprecated would mean that the usage is low and no new code is expected to use that.\n\nI think this the most sound proposal here, although I wouldn't mind tweaking it like @jasnell pointed out.\n",
+      "created_at": "2016-01-13T17:27:16Z"
+    },
+    {
+      "role": "user",
+      "author": "mscdex",
+      "body": "> Alternate proposal:\n> \n> Introduce `Buffer.allocateRaw(number)` to allocate a non-zero filled `Buffer`, document it, try hard to note the possible security consequences of careless usage.\n\n-1\n\n> Introduce `Buffer.allocate(number)` to allocate a zero-filled `Buffer`.\n\n+1\n\n> Soft-deprecate `Buffer(number)` (first in doc for at least a whole major release, perhaps), tell people to use `Buffer.allocate(number)` instead.\n\n-1\n\n> Introduce a command-line flag for opt-in to zero-filling all `Buffer(number)` calls, so that the topmost app could enforce zero-filling all Buffers. I think this point was already discussed and supported.\n\n+2\n\n> Hard-deprecate `Buffer(number)`, point people to `Buffer.allocate(number)`. Perhaps make `Buffer(number)` zero-filled by default at the same time (but don't let people rely on that) and remove the command-line flag, because it being hard-deprecated would mean that the usage is low and no new code is expected to use that.\n\n-1\n",
+      "created_at": "2016-01-13T17:53:53Z"
+    },
+    {
+      "role": "user",
+      "author": "mcollina",
+      "body": "I agree with @jasnell. `Buffer.allocateSafe()` and `Buffer.allocateUnsafe()` are the best ones. I would shorten them up to `Buffer.safe()` and `Buffer.unsafe()`, but that's my taste.\n",
+      "created_at": "2016-01-13T17:55:38Z"
+    },
+    {
+      "role": "user",
+      "author": "Fishrock123",
+      "body": "@mscdex I actually disagree more with that, `allocate()` does not sound safe-by-default to me.\n",
+      "created_at": "2016-01-13T17:58:48Z"
+    },
+    {
+      "role": "user",
+      "author": "silverwind",
+      "body": "Imho, new API would just complicate things unneccessary. +1 for a `--safe-buffers` flag.\n",
+      "created_at": "2016-01-13T18:00:47Z"
+    },
+    {
+      "role": "user",
+      "author": "ChALkeR",
+      "body": "@silverwind Just an opt-in command-line flag will not fix anything in the ecosystem. It will fix things only for those setups that care, and those will receive unneeded performance penalties (by double-zeroing the Buffers). It should be viewed only as a temporary measure.\n",
+      "created_at": "2016-01-13T18:02:48Z"
+    },
+    {
+      "role": "user",
+      "author": "mscdex",
+      "body": "@Fishrock123 I was +1 to that particular idea, not the specific function name. I do agree a better name could be chosen if that route was taken (`allocZeroed()`?).\n",
+      "created_at": "2016-01-13T18:03:29Z"
+    },
+    {
+      "role": "user",
+      "author": "silverwind",
+      "body": "@ChALkeR we could just make it `--unsafe-buffers` if we really want to go that far, but I think a few people here would rather have zeroed buffers as an opt-in because performance is a key feature of Node.js after all.\n",
+      "created_at": "2016-01-13T18:05:23Z"
+    },
+    {
+      "role": "user",
+      "author": "ChALkeR",
+      "body": "@silverwind \n\nWhen trying to solve a problem, we should ask these questions:\n1. How should this been done from the start, putting all current situation aside?\n2. How do we get there in a way that solves things asap, but still breaks the ecosystem in the least possible way?\n\nPreserving `new Buffer(string)`, `new Buffer(number)`, and adding just the weird command-line flag that affects the behaviour of the latter is _not_ the way how this should have been done.\n",
+      "created_at": "2016-01-13T18:07:28Z"
+    },
+    {
+      "role": "user",
+      "author": "joepie91",
+      "body": "I'm a bit iffy about a long hard-deprecation period (as this is a critical security issue that will affect existing applications _right now_, likely without awareness of the operator), but in principle, I agree with @ChALkeR's suggestion to deprecate the current uninitialized constructor entirely, and to introduce two new methods.\n\nThat having been said, I think @jasnell's suggested tweak is a _very_ good idea, and even an essential one, from an \"encouraging safe implementations where possible\" point of view. Rust takes the same approach with [unsafe blocks](https://doc.rust-lang.org/book/unsafe.html).\n\nIt requires the developer to commit to the choice of using something 'unsafe', which will make them less likely to do so without understanding the consequences. As a bonus, it acts as a 'red flag' to others reviewing the code - a clear indication that they need to be careful when modifying it, as an 'unsafe' feature is being used.\n\nI think the `--safe-buffers` flag as _a temporary mitigation strategy_ is a good proposal as well, but it should absolutely not be the _only_ mitigation against this issue in the long term. It comes with a severe performance penalty, and will thus introduce a \"security vs. performance\" trade-off, and I think we all know how that is going to turn out when managers get involved.\n",
+      "created_at": "2016-01-13T21:57:22Z"
+    },
+    {
+      "role": "user",
+      "author": "ChALkeR",
+      "body": "@joepie91 A hard deprecation done sooner would leave us in a situation when module authors can't use the old API because it's hard deprecated and can't use the new API becase old Node.js versions do not support it.\n\nI guess that will not object to hard-deprecating `Buffer(number)` sooner that one major release away, if all the other supported Node.js branches receive the two new methods (as backports). But I doubt that anyone else would support that.\n",
+      "created_at": "2016-01-13T22:35:52Z"
+    },
+    {
+      "role": "user",
+      "author": "joepie91",
+      "body": "> I guess that will not object to hard-deprecating Buffer(number) sooner that one major release away, if all the other supported Node.js branches receive the two new methods (as backports). But I doubt that anyone else would support that.\n\nReleasing a minor update for existing branches with the new methods would probably be a good idea anyway, for module compatibility reasons. Requiring developers to \"detect\" which API to use is a great way to ensure that they will just use the old (dangerous) API for as long as they can get away with it instead...\n",
+      "created_at": "2016-01-13T23:39:24Z"
+    },
+    {
+      "role": "user",
+      "author": "trevnorris",
+      "body": "> To be clear, I'm not suggesting that node core should use zeroed-out buffers.\n\nThis is mostly moot. The majority of memory for core purposes is allocated on the native side, bypassing the `ArrayBufferAllocator`. The reason for how it operates today was always done for the best interest of users, and our assumption that developers understood the clearly documented API they were using.\n\n> The API is optimized for convenience: you can throw any type at it, and it will try to do what you want.\n\nThis makes it sound like Buffer does a best guess. Every acceptable value is documented, and what will happen with that value is also documented.\n\n> The difference with modules like child_process and fs is that they're very obviously doing powerful and sensitive operations.\n\nnode is full of operations that allow us to do power OS interactive things with a simplistic API. This is one of the most powerful aspects of node. I remember when I first started using node (and was completely new to server side development in general) I did all sorts of stupid things to my machine. I learned, admitted my stupidity and didn't do it again. Truth be told I'm definitely not done doing stupid things.\n",
+      "created_at": "2016-01-14T00:14:04Z"
+    },
+    {
+      "role": "user",
+      "author": "okdistribute",
+      "body": "Those who want performance will figure out how to get it.\n\nLet's zero fill buffers by default. Please let's not create a\n`mysql_real_escape_string` situation. Just fix it.\n\nOn Wednesday, January 13, 2016, Sven Slootweg notifications@github.com\nwrote:\n\n> I guess that will not object to hard-deprecating Buffer(number) sooner\n> that one major release away, if all the other supported Node.js branches\n> receive the two new methods (as backports). But I doubt that anyone else\n> would support that.\n> \n> Releasing a minor update for existing branches with the new methods would\n> probably be a good idea anyway, for module compatibility reasons. Requiring\n> developers to \"detect\" which API to use is a great way to ensure that they\n> will just use the old (dangerous) API for as long as they can get away with\n> it instead...\n> \n> —\n> Reply to this email directly or view it on GitHub\n> https://github.com/nodejs/node/issues/4660#issuecomment-171472775.\n\n## \n\nKarissa McKelvey\nhttp://karissa.github.io/\n",
+      "created_at": "2016-01-14T00:14:27Z"
+    },
+    {
+      "role": "user",
+      "author": "ChALkeR",
+      "body": "@karissa Zero-filling `new Buffer(number)` by default will actually make the situation **worse** from the security point of view, taking the current ecosystem into account. See https://github.com/nodejs/node/issues/4660#issuecomment-171262864 for explanation and an alternate approach.\n",
+      "created_at": "2016-01-14T00:16:51Z"
+    },
+    {
+      "role": "user",
+      "author": "silverwind",
+      "body": "(added a `security` label, `memory` is about memory leaks)\n",
+      "created_at": "2016-01-14T00:20:16Z"
+    },
+    {
+      "role": "user",
+      "author": "ChALkeR",
+      "body": "Btw, I made that old note (that was unfinished before) public: https://github.com/ChALkeR/notes/blob/master/Buffer-knows-everything.md\n",
+      "created_at": "2016-01-14T01:23:07Z"
+    },
+    {
+      "role": "user",
+      "author": "feross",
+      "body": "> This makes it sound like Buffer does a best guess. Every acceptable value is documented, and what will happen with that value is also documented.\n\nYou're right: it's already documented. But the disclosure is a total of 39 words, amidst a 6000 word document. We can blame users for not reading the docs – but there's no denying it's bad API design to mix safe and unsafe functionality in the same constructor. It's laying a trap for the user.\n\n> node is full of operations that allow us to do power OS interactive things with a simplistic API. This is one of the most powerful aspects of node.\n\nIt's interesting that you bring up other core APIs.\n\nThere are many core APIs that helpfully coerce from `String` to `Number`, or the reverse. For example, `setTimeout(fn, '1000')` becomes `setTimeout(fn, 1000)`.\n\nEven buffer itself does coercion: `buf[0] = '40'` sets the index to the number `40`, and `buf.readInt8('0')` reads out the value from index `0`. Both automatically coerce from `String` to `Number`.\n\nCan users really be blamed for expecting `new Buffer(myVariable)` to be safe?\n",
+      "created_at": "2016-01-14T01:53:11Z"
+    },
+    {
+      "role": "user",
+      "author": "feross",
+      "body": "I also think the existence of `Uint8Array` and the other `TypedArrayView` types plays a role here.\n\n`Buffer`'s similarity to these safe typed arrays lulls users into a false sense of security. The fact that `Buffer` is now also a subclass of `Uint8Array` makes the potential for confusion even greater.\n",
+      "created_at": "2016-01-14T02:01:49Z"
+    },
+    {
+      "role": "user",
+      "author": "bricss",
+      "body": "Every new Buffer should allocate new sandboxed memset, fulfilled with zeros depends on it size.\n",
+      "created_at": "2016-01-14T02:08:54Z"
+    },
+    {
+      "role": "user",
+      "author": "ChALkeR",
+      "body": "@bricss Switching to zero-filled (by default) `Buffer(number)` will most likely make things even worse in the current situation, even from the security point of view. Please read my explanation above.\n",
+      "created_at": "2016-01-14T02:13:12Z"
+    },
+    {
+      "role": "user",
+      "author": "feross",
+      "body": "@ChALkeR Btw, the point you raised is valid and I hadn't considered it. Thanks for bringing it to light. Any solution should take that into account.\n",
+      "created_at": "2016-01-14T02:22:41Z"
+    },
+    {
+      "role": "user",
+      "author": "ChALkeR",
+      "body": "@feross What do you think about the proposal at https://github.com/nodejs/node/issues/4660#issuecomment-171262864?\n",
+      "created_at": "2016-01-14T02:27:38Z"
+    },
+    {
+      "role": "user",
+      "author": "jasnell",
+      "body": "@nodejs/ctc: Distilling the conversation up to this point: the existing behavior of `Buffer(number)` is likely _not going to change_. Given that zero-filling by default would be a significant breaking behavioral change, it would take at least one full semver-major cycle to do and would make `Buffer(number)` behavior expectations different across different versions of Node, which will lead to more issues than it would solve. Given that, changing the current behavior of `Buffer(number)` is _unlikely_ to happen. Scanning through the thread, I believe there is consensus on this point among the core contributor participants. \n\nThere also appears to be consensus among the core contributors that adding a _new_ factory method for creating a \"safe\" zero-filled Buffer instance is a good thing. There is some disagreement over what to call it. I believe simply calling it `Buffer.safe(number)` is sufficient. The implementation of `Buffer.safe(number)` would essentially be `return new Buffer(n).fill(0)`.\n\nThere appears to be a difference of opinion among the core contributors about whether the `Buffer(number)` constructor should be deprecated and replaced by a `Buffer.unsafe(number)` type of factory method. I can understand the reasoning for this. For my part, I'm in favor of introducing a new `Buffer.unsafe(number)` factory method to be symmetrical with `Buffer.safe(number)` -- which would actually make it easier to understand. But I get why folks don't want `Buffer(number)` deprecated and I can live with that. \n\nThere appears to be consensus among the core contributors about having a command line switch that would explicitly change the default behavior of `Buffer(number)` to zero-fill by default. \n\nThere also appears to be consensus that the documentation can do a better job of spelling out the risks.\n\nThe tl/dr; version is: \n- Change or Deprecate `Buffer(number)`: No\n- Add `Buffer.safe(number)`: Yes\n- Add `--safe-buffers` (or similarly named): Yes\n- Improve documentation: Yes\n\nIf we went with this now, we would still have the ability to add `Buffer.unsafe(number)` and deprecate `Buffer(number)` later.\n\nI suggest we go with this approach.\n",
+      "created_at": "2016-01-14T02:43:40Z"
+    },
+    {
+      "role": "user",
+      "author": "joepie91",
+      "body": "> Change or Deprecate Buffer(number): No\n\nThis is unacceptable. This API is extremely dangerous and likely already an issue in many applications due to the ease of introducing it (any typed user-supplied input is a problem!). It absolutely needs to be deprecated _as soon as possible_, at the very least a soft deprecation.\n",
+      "created_at": "2016-01-14T02:47:10Z"
+    },
+    {
+      "role": "user",
+      "author": "ChALkeR",
+      "body": "@jasnell Without deprecation of `Buffer(number)`, this has no sense. There is already an opt-in (`Buffer(number).fill(0)`) for those who care, but users should be guarded from inadvertently creating unitialized Buffers in the long term, so `Buffer(number)` must be deprecated or changed. Changing it will break more stuff, so the deprecation must happen.\n",
+      "created_at": "2016-01-14T02:47:20Z"
+    },
+    {
+      "role": "user",
+      "author": "jasnell",
+      "body": "@ChALkeR ... ok. As I said, I prefer that option also. @trevnorris and @mscdex , if we had symmetrical `Buffer.unsafe(number)` and `Buffer.safe(number)` with a soft-deprecated `Buffer(number)`, is that something you could live with?\n",
+      "created_at": "2016-01-14T02:52:10Z"
+    },
+    {
+      "role": "user",
+      "author": "ChALkeR",
+      "body": "> Add Buffer.safe(number): Yes\n\nThere is no point in just adding `Buffer.safe(number)` without targeting deprecation of `Buffer(number)`. `Buffer.safe(number)` would be better than the existing `Buffer(number).fill(0)` only because it wouldn't use the deprecated `Buffer(number)` method.\n",
+      "created_at": "2016-01-14T02:52:22Z"
+    },
+    {
+      "role": "user",
+      "author": "feross",
+      "body": "@jasnell Just to be clear, this new proposal is:\n- Deprecate `Buffer(number)` and suggest using `Buffer.unsafe(number)`: Yes\n- Add `Buffer.safe(number)`: Yes\n- Add `Buffer.unsafe(number)`: Yes\n- Add `--safe-buffers` (or similarly named): Yes\n- Improve documentation: Yes\n",
+      "created_at": "2016-01-14T02:53:16Z"
+    },
+    {
+      "role": "user",
+      "author": "jasnell",
+      "body": "@feross ... yes, my goal right now is to see what changes we actually have consensus on. So far a couple of the other core contributors have -1'd the idea of deprecating `Buffer(number)` so I'm wanting to see what we actually do have consensus on.\n",
+      "created_at": "2016-01-14T02:54:50Z"
+    },
+    {
+      "role": "user",
+      "author": "ChALkeR",
+      "body": "@feross \n\n> Deprecate `Buffer(number)` and suggest using `Buffer.unsafe(number)`.\n\nNo. Deprecate `Buffer(number)` and suggest using `Buffer.safe(number)`.\n\n`Buffer.unsafe(number)` should be used only by those who are absolutely sure that they need it and are not leaking anything.\n",
+      "created_at": "2016-01-14T02:54:54Z"
+    },
+    {
+      "role": "user",
+      "author": "jesseschalken",
+      "body": "> This makes it sound like Buffer does a best guess. Every acceptable value is documented, and what will happen with that value is also documented.\n\nI think in a dynamically typed language it is unsafe to assume that the developer knows what the types are going to be (and that they therefore know which constructor signature is going to be used). In practice values are thrown around and problems solved until things seem to work. The developer will never know they exposed random memory. Even in Flow, TypeScript and Closure it is easy to use `any` (`?` in Closure) or a union type which happens to include `number` without knowing the consequences.\n\nIf, for example, Buffer were a Java class with different constructor signatures, the problem wouldn't exist, because the choice of constructor happens at compile time using static types, and so the developer knows exactly which constructor signature is being used (Ctrl-click will take them straight there). It would be impossible for some unknown value to be passed into `new Buffer(...)` and have it use the `new Buffer(number)` constructor unintentionally.\n\n(Personally, if the `Buffer` API were being designed afresh I would move `new Buffer(number)` to `Buffer.alloc(number)` for this reason, but I don't know if it's a sufficient problem for a breaking change.)\n",
+      "created_at": "2016-01-14T02:55:25Z"
+    },
+    {
+      "role": "user",
+      "author": "tqbf",
+      "body": "You will perish in flames.\n",
+      "created_at": "2016-01-14T02:58:45Z"
+    },
+    {
+      "role": "user",
+      "author": "feross",
+      "body": "> Deprecate Buffer(number) and suggest using Buffer.safe(number), Buffer.unsafe(number)\n\n@ChALkeR You're right. Better to push people to use `Buffer.safe` in the deprecation message. `Buffer.unsafe` can be used by those who absolutely need it.\n",
+      "created_at": "2016-01-14T03:00:16Z"
+    },
+    {
+      "role": "user",
+      "author": "joepie91",
+      "body": "@bricss There are definitely usecases for unsafe Buffers, even if they are edge cases - notably, when you can be certain that you will write contents to the full Buffer before using it, and you are working on a performance-critical component.\n\nKeep the discussion constructive, please.\n",
+      "created_at": "2016-01-14T03:03:05Z"
+    },
+    {
+      "role": "user",
+      "author": "mscdex",
+      "body": "@jasnell The main reason I'm against the deprecation is because I don't want to have to do a conditional everywhere I create a Buffer to be backwards compatible with older versions of node and because I always overwrite my entire Buffers with data. Not to mention that I'd have to do so in other people's modules that also write the entirety of their Buffers, just to keep performance from taking a nosedive.\n",
+      "created_at": "2016-01-14T03:03:49Z"
+    },
+    {
+      "role": "user",
+      "author": "joepie91",
+      "body": "@mscdex The backporting of `safe` and `unsafe` methods to older (supported) branches of Node resolves that issue.\n",
+      "created_at": "2016-01-14T03:04:28Z"
+    },
+    {
+      "role": "user",
+      "author": "feross",
+      "body": "@mscdex What about just adding trivial `Buffer.safe` and `Buffer.unsafe` implementations in a node v4 and v5 minor release:\n\n``` js\nBuffer.safe = function (size) {\n  if (typeof size !== 'number') throw new Error('Argument must be a number')\n  return new Buffer(size).fill(0)\n}\nBuffer.unsafe = function (size) {\n  if (typeof size !== 'number') throw new Error('Argument must be a number')\n  return new Buffer(size)\n}\n```\n",
+      "created_at": "2016-01-14T03:05:47Z"
+    },
+    {
+      "role": "user",
+      "author": "ChALkeR",
+      "body": "@mscdex That could be solved with backporting the two new methods and doing a slow deprecation, turning on the hard deprecation only after all the supported Node.js versions receive the new methods.\n",
+      "created_at": "2016-01-14T03:05:52Z"
+    },
+    {
+      "role": "user",
+      "author": "mscdex",
+      "body": "@feross I'm thinking about v0.10 and v0.12 specifically.\n",
+      "created_at": "2016-01-14T03:06:37Z"
+    },
+    {
+      "role": "user",
+      "author": "ChALkeR",
+      "body": "@mscdex 0.10 and 0.12 will be unsupported by the end of this year.\n",
+      "created_at": "2016-01-14T03:06:59Z"
+    },
+    {
+      "role": "user",
+      "author": "mscdex",
+      "body": "@ChALkeR unsupported !== unused\n",
+      "created_at": "2016-01-14T03:07:53Z"
+    },
+    {
+      "role": "user",
+      "author": "feross",
+      "body": "@mscdex ~~Why not backport to those too then?~~\n\n**Edit:** Nevermind, I don't think this is a good idea. See my next comment.\n",
+      "created_at": "2016-01-14T03:08:20Z"
+    },
+    {
+      "role": "user",
+      "author": "ChALkeR",
+      "body": "@mscdex Hard deprecation would be delayed until at least v7, and probably v8 anyways. Any objections against soft documentation-only deprecation at this point?\n",
+      "created_at": "2016-01-14T03:09:04Z"
+    },
+    {
+      "role": "user",
+      "author": "ChALkeR",
+      "body": "> unsupported !== unused\n\n@mscdex That means that they receive no support, including even the security fixes. You can't care about people who use old versions and leave those versions unsupported (namely without security fixes) at the same time.\n\nIt would be better for them to update to the new versions, and if new Buffer methods will give them one more reason to update — it would actually be _good_ for them.\n",
+      "created_at": "2016-01-14T03:10:55Z"
+    },
+    {
+      "role": "user",
+      "author": "feross",
+      "body": "Since 0.10 and 0.12 will be unsupported by end of year, I don't expect much _new code_ to target those versions anyway. So it's safe for most to start using `Buffer.safe` and `Buffer.unsafe` right away.\n\nFolks who need 0.10 and 0.12 support can pay the cost of writing the extra conditional check.\n",
+      "created_at": "2016-01-14T03:13:26Z"
+    },
+    {
+      "role": "user",
+      "author": "ChALkeR",
+      "body": "~~0.10 is in maitance mode, 0.12 is in active LTS.~~\n~~@mscdex Does this mean that 0.12 _might_ receive the new API?~~\n\n**Edit**: Ah, I see, adding new features is against the LTS definition.\n",
+      "created_at": "2016-01-14T03:14:24Z"
+    },
+    {
+      "role": "user",
+      "author": "jasnell",
+      "body": "Given the v0.10 and v0.12 are essentially in maintenance, backporting the `Buffer.safe()` and `Buffer.unsafe()` to those likely would not be done. Our stance towards landing semver-minors in v4 is less strict but still on a case by case basis. I would _not_ count on either `Buffer.safe()` or `Buffer.unsafe()` ever landing in v0.10, v0.12 or v.4. Likewise, deprecating `Buffer(number)` is a semver-major that would _never_ be backported to v0.10, v0.12 or v4.\n",
+      "created_at": "2016-01-14T03:15:36Z"
+    },
+    {
+      "role": "user",
+      "author": "ChALkeR",
+      "body": "@jasnell \n\n> Likewise, deprecating Buffer(number) is a semver-major that would never be backported to v0.10, v0.12 or v4.\n\nI guess that wasn't proposed by anyone =).\n",
+      "created_at": "2016-01-14T03:18:31Z"
+    },
+    {
+      "role": "user",
+      "author": "mscdex",
+      "body": "FWIW here are benchmark results for allocating a 1mb Buffer:\n\n<table class=\"table table-condensed table-bordered\"><tbody><tr><th>&nbsp;</th><th>v5.4.0</th><th>v4.2.3</th><th>v0.12.9</th><th>v0.10.41</th></tr><tr><td>new Buffer</td><td data-state=\"done\" class=\"success\">41,515 ops/sec ±3.00% <br>(164 runs sampled)</td><td data-state=\"done\" class=\"success\">43,670 ops/sec ±1.86% <br>(166 runs sampled)</td><td data-state=\"done\" class=\"success\">53,969 ops/sec ±1.41% <br>(162 runs sampled)</td><td data-state=\"done\" class=\"success\">147,350 ops/sec ±1.82% <br>(166 runs sampled)</td></tr><tr><td>new Buffer (zero-filled)</td><td data-state=\"done\">5,041 ops/sec ±2.00% <br>(174 runs sampled)</td><td data-state=\"done\">4,293 ops/sec ±1.79% <br>(173 runs sampled)</td><td data-state=\"done\">7,953 ops/sec ±0.55% <br>(192 runs sampled)</td><td data-state=\"done\">8,167 ops/sec ±2.38% <br>(184 runs sampled)</td></tr></tbody></table>\n",
+      "created_at": "2016-01-14T03:18:42Z"
+    },
+    {
+      "role": "user",
+      "author": "ChALkeR",
+      "body": "@mscdex The current proposal does not deal with replacing non-zero-filled Buffers with zero-filled Buffers. You could keep the performance using the new API, so the performance argument does not have anything to do with it.\n",
+      "created_at": "2016-01-14T03:19:38Z"
+    },
+    {
+      "role": "user",
+      "author": "alliejp-tv",
+      "body": "Reading through this thread as a node.js user, I'm rather disappointed it's taken this long to come to a conclusion of \"hey this shit's broke, gotta be fixed yo\". \n\nThis bug could be considered more damaging than Heartbleed and the fact that it isn't being taken as seriously as Heartbleed astonishes me - Do I need to give it a name and a pretty logo? \n\nIMO, this is not a difficult issue to solve: \n- Deprecate the existing `buffer`, right now. I don't particularly care if it breaks unsupported code, I just want it gone because it's dangerous. A soft deprecation would also be acceptable.\n- Implement `buffer.safe` and promote `buffer.safe` as a direct replacement for `buffer`. \n- Implement `buffer.unsafe` for people who _absolutely know_ their code will be writing to the buffer immediately and they are working on performance-critical code. Document it, but don't encourage it's use, and clearly state the tradeoffs. \n- Backport these new methods to existing supported versions, as with any other critical security fix. \n\nThis is a bug, and it's a huge bug, and as a node.js user it's a bug I want squashed as soon as possible. \n",
+      "created_at": "2016-01-14T03:23:53Z"
+    },
+    {
+      "role": "user",
+      "author": "ChALkeR",
+      "body": "@mscdex @feross Pointing people from `Buffer(number)` to `Buffer.safe(number)` instead of `Buffer.unsafe(number)` is needed only because this way people who do not care or are not sure what they are doing will get the correct method. People who are experienced enough to work with unitialized `Buffer`s and who care about performance would be able to actually _read the docs_ and find `Buffer.unsafe(number)`. Anyways, it's unsafe to work with unitialized buffers without reading the docs on those first.\n",
+      "created_at": "2016-01-14T03:25:35Z"
+    },
+    {
+      "role": "user",
+      "author": "joepie91",
+      "body": "@jasnell What's the point of a maintenance period if security patches are not backported?\n",
+      "created_at": "2016-01-14T03:27:46Z"
+    },
+    {
+      "role": "user",
+      "author": "alliejp-tv",
+      "body": "> What's the point of a maintenance period if security patches are not backported?\n\n**+1**\n",
+      "created_at": "2016-01-14T03:57:27Z"
+    },
+    {
+      "role": "user",
+      "author": "jasnell",
+      "body": "Adding `Buffer.safe()` and `Buffer.unsafe()` would not qualify as a security patch. It is new API. As has been pointed out repeatedly, the existing behavior is documented and has been around for a very long time.\n",
+      "created_at": "2016-01-14T04:17:08Z"
+    },
+    {
+      "role": "user",
+      "author": "jasnell",
+      "body": "For v0.10, v0.12 and v4.x, polyfills for `Buffer.safe()` and `Buffer.unsafe()` are drop dead simple, any module that wants to use the new APIs but be backwards compatible could easily do something like:\n\n```\nBuffer.safe = Buffer.safe || function(n) { return new Buffer(n).fill(0); };\nBuffer.unsafe = Buffer.unsafe || function(n) { return new Buffer(n); }\n```\n",
+      "created_at": "2016-01-14T04:28:03Z"
+    },
+    {
+      "role": "user",
+      "author": "jasnell",
+      "body": "I have opened a PR (#4682) that provides an initial (somewhat sloppy) implementation for `Buffer.safe()` and `Buffer.unsafe()`. It could be improved but it's a start. I'm opening it now _only for discussion_ purposes so the new APIs can be experimented with and benchmarked. We can also iterate on the implementation of `Buffer.safe()` to try to make it more efficient. The implementation of `Buffer.unsafe()` is the same as `Buffer(num)` and should have identical performance characteristics.\n",
+      "created_at": "2016-01-14T04:30:33Z"
+    },
+    {
+      "role": "user",
+      "author": "joepie91",
+      "body": "@jasnell The addition of `Buffer.safe()` and `Buffer.unsafe()` in older versions is a _prerequisite_ for the security patch in later versions to have effect - if the change is not backported, module authors will just hang on to the deprecated behaviour for as long as they possibly can, prolonging the issue, to avoid having to feature-detect the availability of `safe`/`unsafe` or think about polyfills. Whether people _can_ do something is irrelevant if they have no _motivation_ to do it.\n\nAre there any actual technical concerns regarding backporting `safe` and `unsafe` to older, maintained versions? It would not introduce any backwards compatibility issues whatsoever as far as I can tell (as it is purely an API addition, not a deprecation), and arguing against this seems to me like following the letter of the guidelines, rather than the spirit (or its goals).\n\nWhereas this is admittedly a bit of a strange case (compared to the average security patch), it is required for correct functioning of the patch in newer versions - which can only happen with ecosystem support - and I can't see any reason to treat it differently from any other security patch in that regard. Backporting non-breaking functionality to older versions will allow the ecosystem to take care of the rest.\n\nHow long it's been \"around\" for doesn't really matter - it only makes the issue worse. I have yet to speak to a developer who actually expected this issue to exist, so it is reasonable to assume that all usage of `new Buffer` in existing code is wrong.\n",
+      "created_at": "2016-01-14T04:39:47Z"
+    },
+    {
+      "role": "user",
+      "author": "jasnell",
+      "body": "Yes, there are technical concerns. Additive changes can break (and have\nbroken) things. The argument \"what's the harm in landing this in LTS\" can\nbe applied to each and every semver-minor we get. There are _always_\nreasons we _could_ land but those rarely, if ever, justify whether we\n_should_. In this case, the existing behavior of `Buffer(num)` is well\nestablished and there is an existing workaround _already available_ to\ndevelopers (e.g. calling `.fill(0)` as already recommended by the\ndocumentation).\n\nAt **most** I can see an argument for backporting the `--safe-buffers`\ncommand line argument but even that would need to be decided by ctc\nconsensus.\nOn Jan 13, 2016 8:39 PM, \"Sven Slootweg\" notifications@github.com wrote:\n\n> @jasnell https://github.com/jasnell The addition of Buffer.safe() and\n> Buffer.unsafe() is a _prerequisite_ for the security patch in later\n> versions to have effect - if the change is not backported, module authors\n> will just hang on to the deprecated behaviour for as long as they possibly\n> can, prolonging the issue, to avoid having to feature-detect the\n> availability of safe/unsafe or think about polyfills. Whether people _can_\n> do something is irrelevant if they have no _motivation_ to do it.\n> \n> Are there any actual technical concerns regarding backporting safe and\n> unsafe to older, maintained versions? It would not introduce any\n> backwards compatibility issues whatsoever as far as I can tell (as it is\n> purely an API addition, not a deprecation), and arguing against this seems\n> to me like following the letter of the guidelines, rather than the spirit\n> (or its goals).\n> \n> Whereas this is admittedly a bit of a strange case (compared to the\n> average security patch), it is required for correct functioning of the\n> patch in newer versions - which can only happen with ecosystem support -\n> and I can't see any reason to treat it differently from any other security\n> patch in that regard. Backporting non-breaking functionality to older\n> versions will allow the ecosystem to take care of the rest.\n> \n> How long it's been \"around\" for doesn't really matter - it only makes the\n> issue worse. I have yet to speak to a developer who actually expected this\n> issue to exist, so it is reasonable to assume that all usage of new Buffer\n> in existing code is wrong.\n> \n> —\n> Reply to this email directly or view it on GitHub\n> https://github.com/nodejs/node/issues/4660#issuecomment-171528054.\n",
+      "created_at": "2016-01-14T05:07:00Z"
+    },
+    {
+      "role": "user",
+      "author": "alliejp-tv",
+      "body": "> Adding Buffer.safe() and Buffer.unsafe() would not qualify as a security patch.\n\nI'm afraid we're now drifting away from the core of this issue; There's a bug, and it's gotta be fixed. \n\nWe can sit here _all day_ talking about how a fix for this bug do or do not qualify as a \"security patch\", but to be completely frank I don't care: There's a glaring security issue here that really needs fixing, and the longer we continue to argue about what this issue is, the more time someone has to exploit it. \n\n@jasnell I also think you're missing @joepie91's point, somewhat: Yeah, there is a workaround, but that's useless for _unmaintained code_. If there is a bug in a piece of unmaintained code which somebody is using in production which allows this to be exploited, then claiming \"There's a workaround!\" isn't gonna do anything about the people who just got their private keys lifted.\n\nHell, even for maintained code it's an issue: We know developers are lazy, if someone can take security over performance they most likely will if they don't know any better. \n\nBackport **something**, even if it does break old code. Add an `--unsafe-buffers` flag if you want, but don't refuse to patch a vulnerability that you know exists in supposedly supported code, because IMHO that is irresponsible. \n",
+      "created_at": "2016-01-14T05:17:29Z"
+    },
+    {
+      "role": "user",
+      "author": "joepie91",
+      "body": "> Yes, there are technical concerns. Additive changes can break (and have broken) things.\n\nWhat can you see this addition breaking?\n\n> The argument \"what's the harm in landing this in LTS\" can be applied to each and every semver-minor we get. There are _always_ reasons we _could_ land but those rarely, if ever, justify whether we _should_.\n\nThis isn't just \"yet another semver-minor\". This is a **security issue**. It is not properly solvable without at the very least backporting the API addition. That's the justification.\n\n> In this case, the existing behavior of `Buffer(num)` is well established and there is an existing workaround _already available_ to developers (e.g. calling `.fill(0)` as already recommended by the documentation).\n\nWhich makes the entire patch moot, and ignores the reason the patch proposal exists to begin with - because the current \"recommend that people zero-fill themselves\" approach _doesn't work_, in part because of constructor overloading. This is not a solution, and does not address the \"motivation\" concern I raised above at all.\n",
+      "created_at": "2016-01-14T05:19:41Z"
+    },
+    {
+      "role": "user",
+      "author": "jasnell",
+      "body": "Adding `Buffer.safe` and `Buffer.unsafe` to LTS versions does nothing to\nhelp unmaintained code either given that none of that code will be modified\nto use the new APIs. Back porting those APIs does not solve the problem.\n\nAs I said, there is an argument to be made for backporting\n`--safe-buffers`. There is no argument that I can see for backporting\n`Buffer.safe` and `Buffer.unsafe`. Modules that want to use the new APIs on\nolder versions can polyfill, developers that want to make sure older\nunmaintained modules can't be exploited could use `--safe-buffers`. Even\nstill, there's a cost when introducing new command line options in older\nversions of Node. The decision cannot be made lightly.\n\nI have opened a PR that begins to address the problem moving forward. The\nnext step is to implement `--safe-buffers` and get the idea of backporting\nthat in front of the LTS WG and the CTC for discussion.\nOn Jan 13, 2016 9:17 PM, \"Alfie Pates\" notifications@github.com wrote:\n\n> Adding Buffer.safe() and Buffer.unsafe() would not qualify as a security\n> patch.\n> \n> I'm afraid we're now drifting away from the core of this issue; There's a\n> bug, and it's gotta be fixed.\n> \n> We can sit here _all day_ talking about how a fix for this bug do or do\n> not qualify as a \"security patch\", but to be completely frank I don't care:\n> There's a glaring security issue here that really needs fixing, and the\n> longer we continue to argue about what this issue is, the more time someone\n> has to exploit it.\n> \n> @jasnell https://github.com/jasnell I also think you're missing\n> @joepie91 https://github.com/joepie91's point, somewhat: Yeah, there is\n> a workaround, but that's useless for _unmaintained code_. If there is a\n> bug in a piece of unmaintained code which somebody is using in production\n> which allows this to be exploited, then claiming \"There's a workaround!\"\n> isn't gonna do anything about the people who just got their private keys\n> lifted.\n> \n> Hell, even for maintained code it's an issue: We know developers are lazy,\n> if someone can take security over performance they most likely will if they\n> don't know any better.\n> \n> Backport _something_, even if it does break old code. Add an\n> --unsafe-buffers flag if you want, but don't refuse to patch a\n> vulnerability that you know exists in supposedly supported code, because\n> IMHO that is irresponsible.\n> \n> —\n> Reply to this email directly or view it on GitHub\n> https://github.com/nodejs/node/issues/4660#issuecomment-171534018.\n",
+      "created_at": "2016-01-14T05:33:45Z"
+    },
+    {
+      "role": "user",
+      "author": "alliejp-tv",
+      "body": "> Adding `Buffer.safe` and `Buffer.unsafe` to LTS versions does nothing to\n> help unmaintained code either given that none of that code will be modified\n> to use the new APIs. Back porting those APIs does not solve the problem.\n\nThen you make `buffer` behave like `buffer.safe` and you add a flag, say `--unsafe-buffers` to enable the unsafe functionality. \n\nDon't implement a fail-deadly.  \n",
+      "created_at": "2016-01-14T05:50:18Z"
+    },
+    {
+      "role": "user",
+      "author": "jasnell",
+      "body": "-1. As already indicated several times the existing behavior of\n`Buffer(num)` is not changing. We can deprecate that constructor in the\nnext major version, but (based on the opinions of the core contributors\nexpressed in this thread) we are not changing that default behavior. The\noption on the table is to replace it _moving forward_ with `Buffer.safe`\nand `Buffer.unsafe`, to introduce the `--safe-buffers` flag, and to\n_possibly_ backport `--safe-buffers` to LTS.\n\nI'll make sure this topic is on next week's @nodejs/ctc call agenda to get\na final resolution if necessary.\nOn Jan 13, 2016 9:50 PM, \"Alfie Pates\" notifications@github.com wrote:\n\n> Adding Buffer.safe and Buffer.unsafe to LTS versions does nothing to\n> help unmaintained code either given that none of that code will be modified\n> to use the new APIs. Back porting those APIs does not solve the problem.\n> \n> Then you make buffer behave like buffer.safe and you add a flag, say\n> --unsafe-buffers to enable the unsafe functionality.\n> \n> Don't implement a fail-deadly.\n> \n> —\n> Reply to this email directly or view it on GitHub\n> https://github.com/nodejs/node/issues/4660#issuecomment-171538561.\n",
+      "created_at": "2016-01-14T06:33:13Z"
+    },
+    {
+      "role": "user",
+      "author": "ChALkeR",
+      "body": "@alfiepates \n\n> Then you make buffer behave like buffer.safe\n\nOnce again: that will only make things **worse**, even from the security point of view.\n",
+      "created_at": "2016-01-14T08:37:11Z"
+    },
+    {
+      "role": "user",
+      "author": "rvagg",
+      "body": "@jasnell I think you might be jumping a bit early on calling \"consensus\", many of us are hovering and watching this evolve. This discussion has actually been going on significantly longer than this issue and the reason nothing has changed to date, over the many years Node has had a `Buffer` and this behaviour was intentionally introduced, is exactly because there has been no consensus that something should change.\n\nTo all those calling this a bug: **this is not a bug, it is intended behaviour and is documented, it is not a surprise to anyone who works in core and is common amongst non-web programming environments**. That's not to say that what we have is ideal and shouldn't be changed or improved. Just please stop interpreting this discussion as some newly discovered heartbleed-like situation, that's unhelpful hyperbole that will be dismissed when folks are making considered decisions here. Any association with heartbleed goes directly to the two packages that saw fixes this week for **misusing the Buffer API**, not core. I think it's the fact that very seasoned developers could find such misuse so easy that is the focus of this for core, that's the real problem that core has and needs to address in some way.\n\nThis is a very long discussion with a considerable amount of historical context that can't be boiled down to a meme.\n\nAnd no, I'm not picking a side on this, don't read that into my words. I would just like to ask the heat and pace be taken out of this so we can take a more considered approach. I think we all appreciate the input being provided here, just please don't expect anything to happen very quickly due to the complexities and differences of opinions involved.\n",
+      "created_at": "2016-01-14T10:37:42Z"
+    },
+    {
+      "role": "user",
+      "author": "bricss",
+      "body": "@rvagg You my hero, +1\n",
+      "created_at": "2016-01-14T11:31:59Z"
+    },
+    {
+      "role": "user",
+      "author": "jasnell",
+      "body": "@rvagg ... To be clear, I was attempting to summarize the pieces of the\nissue where we appeared to have agreement vs. the parts that were still in\nquestion.\nOn Jan 14, 2016 2:37 AM, \"Rod Vagg\" notifications@github.com wrote:\n\n> @jasnell https://github.com/jasnell I think you might be jumping a bit\n> early on calling \"consensus\", many of us are hovering and watching this\n> evolve. This discussion has actually been going on significantly longer\n> than this issue and the reason nothing has changed to date, over the many\n> years Node has had a Buffer and this behaviour was intentionally\n> introduced, is exactly because there has been no consensus that something\n> should change.\n> \n> To all those calling this a bug: _this is not a bug, it is intended\n> behaviour and is documented, it is not a surprise to anyone who works in\n> core and is common amongst non-web programming environments_. That's not\n> to say that what we have is ideal and shouldn't be changed or improved.\n> Just please stop interpreting this discussion as some newly discovered\n> heartbleed-like situation, that's unhelpful hyperbole that will be\n> dismissed when folks are making considered decisions here. Any association\n> with heartbleed goes directly to the two packages that saw fixes this week\n> for _misusing the Buffer API_, not core. I think it's the fact that very\n> seasoned developers could find such misuse so easy that is the focus of\n> this for core, that's the real problem that core has and needs to address\n> in some way.\n> \n> This is a very long discussion with a considerable amount of historical\n> context that can't be boiled down to a meme.\n> \n> And no, I'm not picking a side on this, don't read that into my words. I\n> would just like to ask the heat and pace be taken out of this so we can\n> take a more considered approach. I think we all appreciate the input being\n> provided here, just please don't expect anything to happen very quickly due\n> to the complexities and differences of opinions involved.\n> \n> —\n> Reply to this email directly or view it on GitHub\n> https://github.com/nodejs/node/issues/4660#issuecomment-171604708.\n",
+      "created_at": "2016-01-14T13:58:27Z"
+    },
+    {
+      "role": "user",
+      "author": "mhart",
+      "body": "This may be totally off base, it's been years since I've done any C/C++ – but I was reading this article the other day and intrigued by the assertion that \"There is no performance penalty for getting zero'd memory\"\n\nhttps://matt.sh/howto-c#_misc-thoughts\n\nNow the author does then add the caveat that for \"huge\" memory allocations there may be a noticeable performance impact, but it certainly seemed to imply that it shouldn't be noticeable in the general case.\n\nI see some performance comparisons from @mscdex [above](https://github.com/nodejs/node/issues/4660#issuecomment-171517946) – but it wasn't clear whether that was using `.fill()`, or modifying native C/C++ code to use calloc or similar. Would such a change yield similar results?\n",
+      "created_at": "2016-01-14T16:04:00Z"
+    },
+    {
+      "role": "user",
+      "author": "kurtseifried",
+      "body": "I've requested a CVE for this issue:\n\nhttp://www.openwall.com/lists/oss-security/2016/01/14/5\n",
+      "created_at": "2016-01-14T16:30:16Z"
+    },
+    {
+      "role": "user",
+      "author": "ChALkeR",
+      "body": "@kurtseifried I don't think this needs a CVE. Also, your description of the issue does not depict the current proposal.\n",
+      "created_at": "2016-01-14T16:57:31Z"
+    },
+    {
+      "role": "user",
+      "author": "jasnell",
+      "body": "@ChALkeR is correct that a CVE for this is not necessary or appropriate. @rvagg is correct that this is not a bug. \n",
+      "created_at": "2016-01-14T17:08:58Z"
+    },
+    {
+      "role": "user",
+      "author": "seishun",
+      "body": "I don't see any point in adding `Buffer.safe(number)`, there is already `new Buffer(1024).fill(0)`.\n\nThe issue here is accidentally calling `new Buffer(number)` instead of `new Buffer(string)`, right? In that case, the solution is to make the signatures incompatible:\n- Deprecate `new Buffer(number)` and add `Buffer.alloc(number)`, or\n- Deprecate `new Buffer(string)` and require the encoding argument (e.g. `new Buffer(string, 'utf-8')`)\n\nAnything beyond that is superfluous.\n",
+      "created_at": "2016-01-14T17:56:49Z"
+    },
+    {
+      "role": "user",
+      "author": "Fishrock123",
+      "body": "> `new Buffer(1024).fill(0)` \n\nExcept that's a lot slower than using `calloc`. One could argue that you can already do `new Buffer(TypedArray(num))`, but that is no way obvious without advanced knowledge of these APIs.\n",
+      "created_at": "2016-01-14T18:01:38Z"
+    },
+    {
+      "role": "user",
+      "author": "seishun",
+      "body": "> Except that's a lot slower than using calloc.\n\nMy point is that there _is_ a way to make a safe Buffer if one wants to. Whether it's fast or not is completely irrelevant to the issue discussed here. If someone needs a `calloc` binding in Node.js, they should submit a separate issue.\n",
+      "created_at": "2016-01-14T18:09:45Z"
+    },
+    {
+      "role": "user",
+      "author": "Fishrock123",
+      "body": "> My point is that there is a way to make a safe Buffer if one wants to.\n\nSure, but that's not what this issue is about. The crux of this issue is that the `Buffer(thing)` API is effectively a trap, and we should probably do something about that.\n",
+      "created_at": "2016-01-14T18:12:10Z"
+    },
+    {
+      "role": "user",
+      "author": "seishun",
+      "body": "Personally, I use `new Buffer(number)` a lot in my code. I wouldn't mind replacing those calls with `Buffer.alloc(number)`, but I _would_ mind having the word \"unsafe\" all over my code that doesn't even send data anywhere. Not every Node.js program is a web server, and the concept of \"safety\" depends heavily on the use case.\n\n> Sure, but that's not what this issue is about.\n\nExactly, that's why I don't see why the addition of `Buffer.safe` is being discussed here.\n",
+      "created_at": "2016-01-14T18:19:24Z"
+    },
+    {
+      "role": "user",
+      "author": "ChALkeR",
+      "body": "@seishun I am now preparing a lengthy explanation of my proposal that covers many questions, including your one. It will be done in few hours.\n",
+      "created_at": "2016-01-14T18:24:31Z"
+    },
+    {
+      "role": "user",
+      "author": "jasnell",
+      "body": "@seishun ... I can definitely see the argument for not using the `unsafe` term. Perhaps instead of `Buffer.unsafe()`/`Buffer.safe()` we can simply use `Buffer.alloc()`/`Buffer.allocSafe()` and go from there? Seems to be a more acceptable solution. \n",
+      "created_at": "2016-01-14T18:45:04Z"
+    },
+    {
+      "role": "user",
+      "author": "seishun",
+      "body": "@jasnell I'd go with `Buffer.alloc()`/`Buffer.calloc()` instead. As I said, the \"safety\" factor of a zero-filling allocation is use case dependent.\n",
+      "created_at": "2016-01-14T18:51:23Z"
+    },
+    {
+      "role": "user",
+      "author": "ChALkeR",
+      "body": "@jasnell Whatever you name them, the safe variant (the one that zero-fills the memory) should be the most obvious to use one. `Buffer.alloc()`/`Buffer.allocSafe()` will not do that. \n\nThe most straightforward and recommented way of allocating `Buffer`s should do that in a safe way to ensure that users use that by default, and resort to allocating unsafe `Buffer`s only if they are absolutely sure what they are doing and definitely need it.\n\nDon't forget that not everyone will read the docs.\n",
+      "created_at": "2016-01-14T18:51:30Z"
+    },
+    {
+      "role": "user",
+      "author": "ChALkeR",
+      "body": "@seishun @jasnell If you want `Buffer.alloc()` (or `Buffer.allocate()`) to be present, then it should allocate zero-filled buffers, and the non zero-filled one should be called something like `Buffer.allocUnsafe()`, `Buffer.allocRaw()`, or something like that.\n\nPerhaps `Buffer.raw()` would be also fine, but there were some objections against that, if I remember things correctly. @joepie91, perhaps?\n\nMost people should use the zero-filled variant.\n",
+      "created_at": "2016-01-14T18:55:20Z"
+    },
+    {
+      "role": "user",
+      "author": "seishun",
+      "body": "@ChALkeR \n\n> the safe variant (the one that zero-fills the memory) should be the most obvious to use one\n\nSo far I haven't seen any evidence that people erroneously assume that `new Buffer(number)` zero-fills the memory. The original message only gives examples of erroneously calling `new Buffer(number)` instead of `new Buffer(string)`. Zero-filling would only help in one case – if `new Buffer(number)` returned zero-filled memory, then the issue presented would only result in incorrect behavior instead of a security issue. In other words, if we aren't going to change `new Buffer(number)` to return zero-filled memory, then zero-filling is completely irrelevant to this issue.\n",
+      "created_at": "2016-01-14T19:00:32Z"
+    },
+    {
+      "role": "user",
+      "author": "ChALkeR",
+      "body": "> So far I haven't seen any evidence that people erroneously assume that new Buffer(number) zero-fills the memory. \n\nI have seen those people, found issues in code, reported those, and talked with such people over Gitter. I remember someone being surprised. Also, look at Node.js issue reports regarding zero-filling `Buffer()`. Also, at least one of Node.js active collaborators was surprised by the fact that `Buffer(number)` is not zero filled, afaik. Also, I guess @evilpacket  have seen many such people.\n\n«I have not seen any evidience» is not a good attitude to an issue that targets improving the ecosystem security.\n",
+      "created_at": "2016-01-14T19:12:30Z"
+    },
+    {
+      "role": "user",
+      "author": "thefourtheye",
+      "body": ">    So far I haven't seen any evidence that people erroneously assume that new Buffer(number) zero-fills the memory.\n\nI, for one, was really surprised to find that the buffers are not zero-filled.\n",
+      "created_at": "2016-01-14T19:20:34Z"
+    },
+    {
+      "role": "user",
+      "author": "seishun",
+      "body": "@ChALkeR Well, you're the first person to mention that in this issue. Would you care to provide some examples?\n\nIn any case, such confusion should be resolved by improving documentation, not by changing method names to something scary. I bet for most users performance is more important than safety for the case when they forget to write to the buffer.\n",
+      "created_at": "2016-01-14T19:32:12Z"
+    },
+    {
+      "role": "user",
+      "author": "gergoerdosi",
+      "body": "I think using `Buffer.alloc()` and `Buffer.allocUnsafe()` would be a good start. The word \"unsafe\" could be used just like \"sync\", some methods have the default safety, others don't (`Foo.bar()` - `Foo.barUnsafe()`). Go has an `unsafe` package too: https://golang.org/pkg/unsafe/.\n\nIt's not good to see the word \"unsafe\" in a code, but at least it makes developers cautious, which I think is the point. They will immediately know that something has to be taken care of when they use it.\n\nI don't like `Buffer.safe()` and `Buffer.unsafe()` because it is not clear what they are doing. On the other hand `alloc` describes the purpose of the function.\n",
+      "created_at": "2016-01-14T19:33:52Z"
+    },
+    {
+      "role": "user",
+      "author": "ChALkeR",
+      "body": "@seishun For example: https://github.com/nodejs/node-v0.x-archive/issues/7230\n\nI don't want to paste Gitter chat logs now, I really want to finish my post about the current proposal today, and it's already 22:35 here. What I already mentioned should be enough.\n",
+      "created_at": "2016-01-14T19:36:04Z"
+    },
+    {
+      "role": "user",
+      "author": "seishun",
+      "body": "> For example: nodejs/node-v0.x-archive#7230\n\nAnd it was resolved by improving the documentation. I'm actually surprised that the docs didn't mention it until less than a year ago. That must mean not a lot of people were surprised/affected by this behavior, otherwise someone would have complained about it and got the docs fixed much earlier.\n",
+      "created_at": "2016-01-14T19:47:02Z"
+    },
+    {
+      "role": "user",
+      "author": "okdistribute",
+      "body": "As said earlier, the fact that it is \"unsafe\" is use case dependent.\n\nThe best proposal I've seen so far, from a user POV, is\ndeprecating Buffer(num) altogether and introducing Buffer.alloc(num) that\ntakes on the old behavior of Buffer(num). Introducing a Buffer.calloc is a\ngood idea, too, although I agree that it is separate.\n\nThis seems like the easiest change to explain, implement, and maintain\n(one simple find and replace). Overloading the constructor this way is\ndangerous, proven by the fact that advanced developers didn't catch it.\nIt's clearly going to continue to be a problem if the behavior is not\ndeprecated.\n\nOn Thursday, January 14, 2016, Сковорода Никита Андреевич <\nnotifications@github.com> wrote:\n\n> @seishun https://github.com/seishun For example:\n> nodejs/node-v0.x-archive#7230\n> https://github.com/nodejs/node-v0.x-archive/issues/7230\n> \n> I don't want to paste Gitter chat logs now, I really want to finish my\n> post about the current proposal today, and it's already 22:35 here. What I\n> already mentioned should be enough.\n> \n> —\n> Reply to this email directly or view it on GitHub\n> https://github.com/nodejs/node/issues/4660#issuecomment-171754455.\n\n## \n\nKarissa McKelvey\nhttp://karissa.github.io/\n",
+      "created_at": "2016-01-14T19:54:15Z"
+    },
+    {
+      "role": "user",
+      "author": "ChALkeR",
+      "body": "@karissa \n\n> and introducing Buffer.alloc(num) that takes on the old behavior of Buffer(num). Introducing a Buffer.calloc is a good idea, too, although I agree that it is separate.\n\nThat won't help. Please see explanations above or wait for my post.\n",
+      "created_at": "2016-01-14T19:58:37Z"
+    },
+    {
+      "role": "user",
+      "author": "okdistribute",
+      "body": "I don't actually understand why that wouldn't help, can you give me more\ninformation as to why you think that?\n\nI was under the impression that the problem is from overloading the\nconstructor, passing a number when you expected it to be a string.\n\nOn Thursday, January 14, 2016, Сковорода Никита Андреевич <\nnotifications@github.com> wrote:\n\n> @karissa https://github.com/karissa\n> \n> and introducing Buffer.alloc(num) that takes on the old behavior of\n> Buffer(num). Introducing a Buffer.calloc is a good idea, too, although I\n> agree that it is separate.\n> \n> That won't help.\n> \n> —\n> Reply to this email directly or view it on GitHub\n> https://github.com/nodejs/node/issues/4660#issuecomment-171762736.\n\n## \n\nKarissa McKelvey\nhttp://karissa.github.io/\n",
+      "created_at": "2016-01-14T20:00:56Z"
+    },
+    {
+      "role": "user",
+      "author": "jsha",
+      "body": "I'm a Node user, and a longtime security engineer at Twitter and now EFF. I was very surprised to hear that a common userland API in Node can return uninitialized memory, and it makes me really concerned about the safety of the Node project I maintain. I don't use Buffer directly, but I use number of packages. The dynamic nature of Node means it's impossible to programmatically check whether any of those packages may be misusing Buffer. As a Node user, I very much want this API to be fixed (to zero memory) and backported.\n\nAs far as I can tell, there are two objections to fixing the API and backporting:\n1. It's an API-breaking change.\n2. There will be performance impacts.\n\nFor (1), how can it be an API-breaking change? The existing API specifies that the memory is uninitialized, which means it can have any value. Zeros are a valid value.\n\nFor (2), I haven't seen any benchmarks showing the presumed slowdown on real world loads. I would venture to say that most applications won't even notice the difference. That said, for applications that get slower when upgrading to a backported version, the path is clear and easy: Update their critical `Buffer(num)` calls to the new `Buffer.allocUnsafe(num)`.\n\n@mhart linked earlier to https://matt.sh/howto-c#_misc-thoughts, a very good, credible source with the recommendation that C programmers should \"always use calloc. There is no performance penalty for getting zero'd memory.\" I'd like to repeat that recommendation. Best practice for C coders in 2016 is to always zero memory. I'd really like Node in 2016 to be at least as good as C's best practices in terms of memory safety.\n",
+      "created_at": "2016-01-14T20:02:39Z"
+    },
+    {
+      "role": "user",
+      "author": "ChALkeR",
+      "body": "@jsha Changing `new Buffer(number)` in a way so that it will zero-fill the memory will cause more security issues and make this matter _even worse_. Please read the above discussion or wait for my post.\n",
+      "created_at": "2016-01-14T20:04:12Z"
+    },
+    {
+      "role": "user",
+      "author": "wbl",
+      "body": "@ChALkeR Your argument is that if node 1.6 is secure against this and node 1.5 is not, this is worse than both being insecure. I think that's wrong.\n",
+      "created_at": "2016-01-14T20:05:31Z"
+    },
+    {
+      "role": "user",
+      "author": "ChALkeR",
+      "body": "@wbl No, that's not it. Please read the discussion above.\n",
+      "created_at": "2016-01-14T20:07:30Z"
+    },
+    {
+      "role": "user",
+      "author": "wbl",
+      "body": "@ChALkeR I found your long post, I don't see how (other then my getting the numbers wrong) that isn't your argument. People on 5.x are getting pwnd now because of this, we can stop that without requiring any code changes or breaking existing code.\n",
+      "created_at": "2016-01-14T20:16:16Z"
+    },
+    {
+      "role": "user",
+      "author": "MylesBorins",
+      "body": "For the sake of testing I have sent in a WIP PR that replaces all instances of malloc in buffer with calloc. I have a CI run going and a CITGM run going so we can see if it introduces any weirdness into the ecosystem.\n",
+      "created_at": "2016-01-14T20:17:12Z"
+    },
+    {
+      "role": "user",
+      "author": "ChALkeR",
+      "body": "@seishun @karissa @wbl Please wait a few hours for a lengtly explanation of my current proposal before asking further questions.\n",
+      "created_at": "2016-01-14T20:18:24Z"
+    },
+    {
+      "role": "user",
+      "author": "jasnell",
+      "body": "@TheAlphaNerd ... if you would, please run a similar CITGM run on https://github.com/nodejs/node/pull/4682\n",
+      "created_at": "2016-01-14T20:19:08Z"
+    },
+    {
+      "role": "user",
+      "author": "mikeal",
+      "body": "Adding an API seems like a very poor solution. This would mean that individual modules decide whether they want to be faster or safer and would leave users of modules with a combination of slower and less safe modules when they want to choose a specific characteristic.\n\nThe best solution I can see would be a command line flag that turns on these safety features globally. Adding API only makes the situation worse.\n\nAs far as changing the default, that's a huge departure from Node's prior behaviour. Considering the range of use cases Node.js has this could be detrimental to many users and may not be the particular profile they prefer.\n",
+      "created_at": "2016-01-14T20:38:58Z"
+    },
+    {
+      "role": "user",
+      "author": "ChALkeR",
+      "body": "@mikeal That point of view is also covered in my forecoming post =).\n",
+      "created_at": "2016-01-14T20:42:41Z"
+    },
+    {
+      "role": "user",
+      "author": "mikeal",
+      "body": "To give a little more perspective, think of all the small devices that are now running Node.js on incredibly limited resources. Changing this default wouldn't just slow them down, it might make them entirely unusable, and for a concern they may not even share. This project is responsible for maintaining compatibility with a wide range of use cases and while should certainly add features that help subsets of those use cases we have to be cognisant of the fact that some behaviours are going to win as the default simply because that's how they have been for long enough that altering them causes a huge amount of breakage and upgrade pain for too many people and so the burden of turning some of this stuff on will and on users who need the new behaviour rather than the old.\n",
+      "created_at": "2016-01-14T20:46:56Z"
+    },
+    {
+      "role": "user",
+      "author": "ChALkeR",
+      "body": "@mikeal The current proposal does not deal with changing the existing behaviour.\n",
+      "created_at": "2016-01-14T20:47:37Z"
+    },
+    {
+      "role": "user",
+      "author": "mikeal",
+      "body": "@ChALkeR I know, but not everyone in thread shares the perspective driving some of the proposed solutions so I'm trying to build a better understanding of the motivations behind them for everyone involved :)\n",
+      "created_at": "2016-01-14T20:49:16Z"
+    },
+    {
+      "role": "user",
+      "author": "ChALkeR",
+      "body": "@mikeal I am currenly in the process of writing a lengthy post that will explain everything better, including the proposed approach, motivations, and possible considerations.\n",
+      "created_at": "2016-01-14T20:53:01Z"
+    },
+    {
+      "role": "user",
+      "author": "mafintosh",
+      "body": "I think the main problem here is that the current Buffer constructor overloads behaviour. One overload Buffer(number) allocates a new buffer. Buffer(string) converts a string into a buffer. In a dynamically language you sometimes mess up types which results in the wrong constructor being called (which can be hard to notice and result in security issues like @feross describes). Adding two new explicit APIs would help solve this issue\n1. `var buf = Buffer.allocate(number)` to allocate a non-zeroed out buffer\n2. `var buf = Buffer.from(val)` to turn a string, uint8 array etc into a buffer\n\nUser-land libraries could easily poly/pony-fill these APIs for old node. If we add these APIs we could deprecate the old Buffer constructor as well.\n",
+      "created_at": "2016-01-14T21:08:18Z"
+    },
+    {
+      "role": "user",
+      "author": "ChALkeR",
+      "body": "@mafintosh Do I get it right that you mean something close to my proposal, with the only addition being that `Buffer(val)` will be also deprecated and moved to `Buffer.from(val)`?\n",
+      "created_at": "2016-01-14T21:11:02Z"
+    },
+    {
+      "role": "user",
+      "author": "mafintosh",
+      "body": "@ChALkeR yea sounds about right. `Buffer.from` vs `Buffer(val)` is a bit easier to feature detect for which makes it easier to add old node support in a userland library. Would also allow for static analysis to find uses of the deprecated constructor\n",
+      "created_at": "2016-01-14T21:13:24Z"
+    },
+    {
+      "role": "user",
+      "author": "ChALkeR",
+      "body": "@mafintosh That one (`Buffer.from`) is new and is not covered in my forecoming post, but I think that it's out of scope of the current issue — it doesn't give any security benefits compared to the current proposal.\n\nLet's deprecate `Buffer(number)` first, introducing more deprecations in the same issue will delay the discussion and make coming to a consensus less likely.\n\nAlso note that `Buffer(value)` is widely used, maybe even more widely than `Buffer(number)`.\n",
+      "created_at": "2016-01-14T21:17:26Z"
+    },
+    {
+      "role": "user",
+      "author": "mafintosh",
+      "body": "@ChALkeR since both of the actual security issues @feross and I have found in modules resulted from the fact the `Buffer(number)` was called by accident when someone was trying to call `Buffer(string)` I think its related. A deprecation warning wouldn't necessarily help here since it would only shown when the faulty constructor is being called (during an attack). It's better than doing nothing though.\n",
+      "created_at": "2016-01-14T21:24:26Z"
+    },
+    {
+      "role": "user",
+      "author": "feross",
+      "body": "@ChALkeR I think that @mafintosh's point is relevant.\n\nIn the current proposal, developers are still forced to keep using `Buffer(variable)` to convert to a string, leaving them vulnerable to the original issues that affected `bittorrent-dht` and `ws`.\n\nWith these:\n- `Buffer.from(value)` - convert from any type to a buffer\n- `Buffer.alloc(size)` - create an uninitialized buffer with given size\n\nthe developer intent is clearly conveyed, and potentially unsafe functionality is put into it's own API.\n\nI think if the API were being designed today, this how it would be done. Let's deprecate `Buffer(value)` entirely.\n",
+      "created_at": "2016-01-14T21:28:42Z"
+    },
+    {
+      "role": "user",
+      "author": "ChALkeR",
+      "body": "@mafintosh Hm. That's a valid point. Perhaps that justifies adding a new API endpoint to create `Buffers` from values.\n",
+      "created_at": "2016-01-14T21:29:49Z"
+    },
+    {
+      "role": "user",
+      "author": "trevnorris",
+      "body": ">  I think if the API were being designed today, this how it would be done. Let's deprecate `Buffer(value)` entirely.\n\nThe assertiveness of your statement is a little off putting. At minimum this needs to be voted on by the @nodejs/ctc and a change this drastic may warrant a proper EPS.\n",
+      "created_at": "2016-01-14T21:41:15Z"
+    },
+    {
+      "role": "user",
+      "author": "ChALkeR",
+      "body": "@mafintosh, @feross I just gave you the access to the post about the current proposal, it's about 70% done, so that you can view it and comment here or somewhere else.\n",
+      "created_at": "2016-01-14T21:41:20Z"
+    },
+    {
+      "role": "user",
+      "author": "ChALkeR",
+      "body": "@trevnorris «What the API would look like if it was designed today» is the first most important question that we should study and think about. The second one is «how do we get there from where we are now in a best possible way»?\n\nhttps://github.com/nodejs/node/issues/4660#issuecomment-171382461\n",
+      "created_at": "2016-01-14T21:43:12Z"
+    },
+    {
+      "role": "user",
+      "author": "mafintosh",
+      "body": "@ChALkeR thanks. i'll have a look.\n",
+      "created_at": "2016-01-14T21:49:48Z"
+    },
+    {
+      "role": "user",
+      "author": "trevnorris",
+      "body": "@ChALkeR \"What should it look like today\" is always going to be subjective. I understand the merit in asking that question, but for example designing the fs module today from scratch would bring on quite the argument. Instead I would suggest \"what feels most natural with the existing API\". Maybe it's not \"the best\", but at least it will work the way the community expects it to.\n",
+      "created_at": "2016-01-14T21:51:25Z"
+    },
+    {
+      "role": "user",
+      "author": "jasnell",
+      "body": "Quick update on https://github.com/nodejs/node/pull/4682 : \n- The `--zero-fill-buffers` command line option is implemented.\n- The new APIs are now named `Buffer.alloc()` and `Buffer.zalloc()`.\n  - `Buffer.zalloc()` == 'zeroed-allocation'. It essentially just creates and returns a new Uint8Array that is always zero-filled.\n  - `Buffer.alloc()` is equivalent to the existing `new Buffer(num)`. \n- Equivalent `SlowBuffer.alloc()` and `SlowBuffer.zalloc()` methods are added as well\n- The existing `Buffer(num)` and `SlowBuffer(num)` are _hard_ deprecated.\n- Documentation is updated as well.\n\nAs a reminder, this is a work in progress PR that is not ready to land as is. It is intended to give us something concrete to work with as opposed to going around in circles over whether or not there's really a bug in Buffer or not. \n\nUsing the `--zero-fill-buffers` command line flag would force `Buffer.alloc()` and `Buffer(num)` to fallback to `Buffer.zalloc()` (and `SlowBuffer.alloc()`/`SlowBuffer(num)` to fall back to `SlowBuffer.zalloc()`). \n\nThis approach gives us two distinct ways of addressing the problem:\n- Policy: Node can be run with the `--zero-fill-buffers` flag to enforce that all buffers be zeroed \n- Dev: Developers can choose either `Buffer.alloc()` or `Buffer.zalloc()` based on their specific needs, with the `--zero-fill-buffers` command line flag taking precedence. \n\nFor LTS, I would propose that _only_ the `--zero-fill-buffers` flag would be backported to v4, v0.12 and v0.10. Note, however, that due to the differences in the underlying Buffer implementation in v0.12/v0.10, the actual implementation would be different than v4 and above. The differences in the implementation are likely inconsequential here. \n\nThis all said, I'm still personally unconvinced that the new `Buffer.alloc()` and `Buffer.zalloc()` methods are even required (similar to @mikeal's objection [here](https://github.com/nodejs/node/issues/4660#issuecomment-171772829)). I think the new methods simply add confusion and make the API even muddier. However, I won't let my personal objections block the action on this. \n",
+      "created_at": "2016-01-14T22:17:09Z"
+    },
+    {
+      "role": "user",
+      "author": "jsha",
+      "body": "> Changing new Buffer(number) in a way so that it will zero-fill the memory will cause more security issues and make this matter even worse. Please read the above discussion or wait for my post.\n\nI read the entire thread in detail before replying. I see two arguments that de-fanging the present `Buffer(num)` API might cause security issues:\n1. Users could be depending on uninitialized memory to provide entropy to a security-critical CSPRNG.\n\nSuch code is already critically, dangerously broken, and hopefully very rare. I don't see this as a good reason to hold up a very real security fix affecting a broad range of modules.\n1. Module authors might notice the new zero-filling behavior (without reading the docs) and start to depend on it in new code that intentionally calls Buffer with a number argument. Users running old versions of Node would import those modules and get incorrect behavior.\n\nI have been taking it for granted that de-fanging the current API would come along with deprecating it, which would avoid this problem.\n\nAre there arguments I'm missing about why this would cause additional _security_ issues?\n\n> To give a little more perspective, think of all the small devices that are now running Node.js on incredibly limited resources.\n\nI understand this concern, but can you give some examples of apps and/or devices? I would be very surprised if even the smallest devices can't afford to zero their memory. It would also be useful to have examples of popular npm modules that _intentionally_ use `Buffer(num)` for performance reasons. It would then be possible to benchmark those modules under realistic conditions.\n\nEven if we assume there is a device and app that would become unusable with a de-fanged API, the maintainer can just switch to some new `Buffer.unsafe_alloc()` method, if that's really what they intend to do.\n",
+      "created_at": "2016-01-14T22:22:18Z"
+    },
+    {
+      "role": "user",
+      "author": "feross",
+      "body": "Another argument for `Buffer.from` and `Buffer.alloc` as a replacement for the current overloaded `Buffer(value)` constructor is that it's familiar because of [`Array.from`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/from) and [`TypedArray.from`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/TypedArray/from).\n\nThose already work in the way that `Buffer.from` would work.\n\n> The `Array.from()` method creates a new `Array` instance from an array-like or iterable object.\n\nAlmost all the types that `Buffer(value)` takes today (except for `number`, of course, and `ArrayBuffer`) match what `Array.from` and `TypedArray.from` do today.\n",
+      "created_at": "2016-01-14T22:29:45Z"
+    },
+    {
+      "role": "user",
+      "author": "trevnorris",
+      "body": "> Almost all the types that `Buffer(value)` takes today (except for `number`, of course, and `ArrayBuffer`) match what `Array.from` and `TypedArray.from` do today.\n\nSo except for type `number`, `ArrayBuffer`, `string` and `JSON` type (leaving `TypedArray` and `Array`) almost all the types match?\n",
+      "created_at": "2016-01-14T22:47:00Z"
+    },
+    {
+      "role": "user",
+      "author": "feross",
+      "body": "Actually, `Array.from` works on `string`.\n",
+      "created_at": "2016-01-14T22:50:56Z"
+    },
+    {
+      "role": "user",
+      "author": "feross",
+      "body": "The whole point of this issue is that `number` shouldn't be included in the same constructor.\n\nSo, yes. `Array.from` works on `TypedArray`, `Array`, and `string`. Not on `ArrayBuffer` or `JSON`.\n",
+      "created_at": "2016-01-14T22:51:33Z"
+    },
+    {
+      "role": "user",
+      "author": "trevnorris",
+      "body": "Doesn't work the same way.\n`Uint8Array.from('123') -> [1, 2, 3]`\n`Buffer('123') -> [31, 32, 33]`\n",
+      "created_at": "2016-01-14T22:55:18Z"
+    },
+    {
+      "role": "user",
+      "author": "feross",
+      "body": "Fair point. So it's not exactly the same. I just suggested that it would be familiar.\n",
+      "created_at": "2016-01-14T23:05:17Z"
+    },
+    {
+      "role": "user",
+      "author": "alliejp-tv",
+      "body": "@ChALkeR \n\n> Once again: that will only make things worse, even from the security point of view.\n\nNo, It won't. The only \"reasons\" I've seen mentioned for that sound a lot more like excuses than legitimate concerns, and _certainly_ not worth holding up what is a pretty important security fix for. \n\nI'm not satisfied with adding a `--zero-fill-buffers` flag as the only backported fix for this issue. I'm a big believer in secure defaults, and this is not one.\n\nI'll say it again: Do not implement a fail-deadly. Stop giving your users footguns. \n",
+      "created_at": "2016-01-14T23:25:21Z"
+    },
+    {
+      "role": "user",
+      "author": "kornelski",
+      "body": "@mscdex \n\nBenchmarks comparing `Buffer(n)` vs `Buffer(n).fill(0)` are not realistic, because they compare _not_ initializing the buffer at all, ever (which you shouldn't do - that the vulnerability) with initializing the buffer once, while the valid real-world case is initializing the buffer once (in your code by overwriting unitialized memory) vs initializing the buffer twice (by overwriting zeroed memory). Therefore, in real world worst-case slowdown can't be worse than 2x.\n\nIn OS X `malloc` is only ~15% slower than `calloc` if you overwrite the buffer with some data. For large allocations OS can use zero page copy-on-write memory, which makes zeroing almost free (and when you read pages that were left unchanged it's even slightly faster due to improved cache locality).\n\nThe difference in performance is tiny - anything done with the buffer in JS is likely to completely eclipse cost of zeroing that can be done very efficiently in low-level code.\n",
+      "created_at": "2016-01-14T23:35:34Z"
+    },
+    {
+      "role": "user",
+      "author": "kornelski",
+      "body": "I'm strongly in favour of security over IMHO inconsequential performance cost, and would prefer `Buffer` to be secure and deterministic. \n\nFor me uninitialized `Buffer` was also a source of bugs: I forgot to fully overwrite a buffer, but my program _seemed_ to work, because I was lucky to get uninitialized values that didn't trigger an error. Of course it broke later. If `Buffer` was deterministic, it'd either always fail or always work, which I prefer.\n\nEven new systems programming languages (D, Rust, Swift) don't allocate uninitalized memory by default any more.\n\nI'd prefer zeroing to be the default behavior, treated as a security issue, and backported to old versions. If someone doesn't update - that's the same problem as if they don't apply any other security patch.\n",
+      "created_at": "2016-01-14T23:55:09Z"
+    },
+    {
+      "role": "user",
+      "author": "alexjeffburke",
+      "body": "I'm going to sidestep comment on the proposals as I can see it's getting heated and I think almost all the views are being represented - but I would like to add another voice representing a long term node developer where this thread is the first I knew of this behaviour and being surprised. That may also be unimportant, there are many areas we don't touch as developers - but as the lead on a node codebase in light of this I'd want to go back and make sure we got this right.\n",
+      "created_at": "2016-01-15T00:19:20Z"
+    },
+    {
+      "role": "user",
+      "author": "trevnorris",
+      "body": "@pornel Zero-filling memory or not has nothing to do with how deterministic the API works. The fact that uninitialized memory is returned is also well documented. So the most you can say is that it was a surprise because you weren't fully aware of how Buffer behaved.\n\nMyself and several other CTC members have agreed that we are open to discussion of how to improve the \"surprise\" of the Buffer API, along with how to best address this in a forward looking and backwards compatible way. But this isn't going to happen in a couple days, and probably not a couple weeks. This is a substantial API change and will be treated as such. It's likewise a major version change, and taking the release schedule into account there's ample time to sit down and work out what's best going forward.\n",
+      "created_at": "2016-01-15T00:21:42Z"
+    },
+    {
+      "role": "user",
+      "author": "ChALkeR",
+      "body": "@trevnorris @feross @mafintosh\n\nNote that I split the proposal into two parts — the old one that was previosly discussed and the Buffer.from(value) one. Those could be discussed separately and merged with different schedules.\n",
+      "created_at": "2016-01-15T00:28:13Z"
+    },
+    {
+      "role": "user",
+      "author": "alexjeffburke",
+      "body": "@trevnorris Thanks for the update - think that's all many of us could have asked for.\n",
+      "created_at": "2016-01-15T00:29:09Z"
+    },
+    {
+      "role": "user",
+      "author": "feross",
+      "body": "@trevnorris \n\n> we are open to discussion of how to improve the \"surprise\" of the Buffer API\n\nThanks for making that point clear. That's all I intended by opening this issue. :+1: \n",
+      "created_at": "2016-01-15T00:31:52Z"
+    },
+    {
+      "role": "user",
+      "author": "jasnell",
+      "body": "As far as the \"inconsequential performance cost\"... here are some current benchmarks comparing buffer creation using #4682's `zalloc()` vs. `alloc()` (hint: larger numbers are better, zalloc == zero-filled allocated, vs alloc == the current uninitialized behavior):\n\n<table>\n<tr><th>method</th><th>size</th><th>op/s</th></tr>\n<tr><td>zalloc</td><td>10</td><td>1218.96236</td></tr>\n<tr><td>alloc</td><td>10</td><td>3354.52777</td></tr>\n</table>\n\n<table>\n<tr><th>method</th><th>size</th><th>op/s</th></tr>\n<tr><td>zalloc</td><td>1024</td><td>1076.14519</td></tr>\n<tr><td>alloc</td><td>1024</td><td>2101.91937</td></tr>\n</table>\n\n<table>\n<tr><th>method</th><th>size</th><th>op/s</th></tr>\n<tr><td>zalloc</td><td>2048</td><td>648.60563</td></tr>\n<tr><td>alloc</td><td>2048</td><td>991.04239</td></tr>\n</table>\n\n<table>\n<tr><th>method</th><th>size</th><th>op/s</th></tr>\n<tr><td>zalloc</td><td>4096</td><td>441.87567</td></tr>\n<tr><td>alloc</td><td>4096</td><td>516.88185</td></tr>\n</table>\n\n<table>\n<tr><th>method</th><th>size</th><th>op/s</th></tr>\n<tr><td>zalloc</td><td>8192</td><td>298.96463</td></tr>\n<tr><td>alloc</td><td>8192</td><td>412.11662</td></tr>\n</table>\n\nThese clear demonstrate that the performance difference is not inconsequential by any stretch of the imagination. As @trevnorris and I and the other CTC members here have indicated, we are certainly open to making improvements here (as demonstrated by the work in #4682) but it will take a while and there is quite a bit to consider before making any firm decisions.\n",
+      "created_at": "2016-01-15T00:40:00Z"
+    },
+    {
+      "role": "user",
+      "author": "paragonie-scott",
+      "body": "Is performance really more important than security?\n\nLet me put it another way: If a developer introduces a vulnerability in their application because of how `Buffer` is implemented, who do you blame?\n- Them, for being stupid\n- Yourself, for designing an API that made it easy to shoot oneself in the foot\n\nSeriously. What are your priorities? I made a similar argument against PHP last year:\n\n> There was serious resistance to throwing an Exception in the event of \"our system is totally fucked and no CSPRNG is available\". They'd rather just return `false` because it would be more consistent.\n> \n> Then there were the \"No it should be a critical `E_ERROR` that terminates the script.\" Which would make developers nervous about adopting the new interfaces (\"this can make my app crash randomly with no recourse? No, I'll stick with an insecure random number generator\").\n> \n> I argued that an Exception would be a good balance of secure-by-default but allowing users to handle failures gracefully.\n\nThe relevance here: As developers, we're often tasked with juggling multiple seemingly-opposed requirements at once. There were many seemingly valid arguments (consistency! no, we need to always fail!).\n\nThe path PHP chose, which I argue is the path Node.js should consider, is to be secure **by default** but allow developers who really want to trade away security for some other metric (performance, etc.) to opt out of this default.\n\n``` php\ntry {\n    $str .= chr(random_int(0, 255));\n} catch (Exception $e) {\n    // Look ma, I'm living dangerously!\n    $str .= chr(mt_rand(0, 255));\n}\n```\n\n### My suggestion as a security researcher\n\nMake the constructor sane by default, but let developers who _need_ an unsafe but more performant API endpoint opt into that by changing the way their code is written.\n\nIs it a BC break? Yes! But secure code is necessarily incompatible with insecure code, lest it open the door to downgrade attacks.\n",
+      "created_at": "2016-01-15T00:54:58Z"
+    },
+    {
+      "role": "user",
+      "author": "paragonie-scott",
+      "body": "More concise recommendation: Migrate the way `Buffer` is currently implemented to `UnsafeBuffer` and then fix `Buffer`.\n",
+      "created_at": "2016-01-15T00:58:51Z"
+    },
+    {
+      "role": "user",
+      "author": "ChALkeR",
+      "body": "@paragonie-scott That will make things worse even from the security point of view, and moreover will not solve an important part of this issue. Please wait for my post regarding the proposal, it explains my statements.\n",
+      "created_at": "2016-01-15T01:03:44Z"
+    },
+    {
+      "role": "user",
+      "author": "paragonie-scott",
+      "body": "> That will make things worse even from the security point of view,\n\nExplain how migrating the insecure API to an explicitly labelled `UnsafeBuffer` and then fixing `Buffer` to behave more securely will make things worse from a security point of view.\n",
+      "created_at": "2016-01-15T01:05:05Z"
+    },
+    {
+      "role": "user",
+      "author": "alliejp-tv",
+      "body": "@ChALkeR \n\n> That will make things worse even from the security point of view\n\nCan you please clarify exactly how it'll make things worse? \n",
+      "created_at": "2016-01-15T01:05:19Z"
+    },
+    {
+      "role": "user",
+      "author": "kumavis",
+      "body": "> Make the constructor sane by default, but let developers who need an unsafe but more performant API endpoint opt into that by changing the way their code is written.\n\nThis seems like a healthy best-of-both-worlds approach\n",
+      "created_at": "2016-01-15T01:42:23Z"
+    },
+    {
+      "role": "user",
+      "author": "mikeal",
+      "body": "This is getting a bit too heated. It would help tremendously if we did a few things:\n- Stop imagining things like \"if we built it today.\" In order to move towards a resolution we have to move towards a shared understanding of the reality of the project and the constraints it has in terms of stability with such a massive ecosystem and userbase.\n- Stop referring to \"deprecation\" or \"migration\" when talking about any kind of breaking change. This is one of the most depended on APIs in core, altering it is such an enormous **breaking** change that any solution that doesn't break it is favourable to breaking it. The world we live in today is one where, regardless of the reasoning behind it, a breaking change of this magnitude is likely to delay adoption of a major release that incorporates for a year or more.\n- Please acknowledge the breadth of use cases Node.js is under. Phrasing things in terms of \"performance vs. security\" assumes a specific set of use cases that are not representative of all Node.js use cases and we need to continue to support all of them. The view you have is built from the experiences you've had in your own environment but Node.js is used in many environments totally different than yours and many of the tradeoffs you many be advocating do not apply.\n",
+      "created_at": "2016-01-15T01:47:52Z"
+    },
+    {
+      "role": "user",
+      "author": "wbl",
+      "body": "@mikeal, do you have actual code with actual measurements where Buffer(number) is the rate-limiting step? Of course, there are several other approaches code that does this can take to regain the performance, such as using the opt-in methods that will be provided. By contrast code which is written with Buffer(object) will result in a security failure whenever object becomes a number. There is no correctness issue with clearing new buffers, just a minor speed issue\n",
+      "created_at": "2016-01-15T02:03:17Z"
+    },
+    {
+      "role": "user",
+      "author": "mikeal",
+      "body": "@wbl you have to look at the performance cost in aggregate. For instance: not too long ago I was talking with someone who needs to run 5 docker instances (one per network device + 1 extra) for a networking project he's running on that is based on Raspberry Pi. He wasn't going to be able to use Node.js because of the memory constraints but when our idle memory usage dropped significantly in v4 he was able to use Node.js. Cutting in half the number of operations we can do per second here is likely to throw a new wrench in that project and this is just one example I happen to know about because I started chatting with him at a conference. Node.js is now the most widely supported runtime in IoT platforms and is running on-chip in nearly all next generation platforms. These environments are highly constrained and something we have to fight hard to keep in mind as we have historically been server focused.\n",
+      "created_at": "2016-01-15T02:10:19Z"
+    },
+    {
+      "role": "user",
+      "author": "joepie91",
+      "body": "> @jasnell: Adding `Buffer.safe` and `Buffer.unsafe` to LTS versions does nothing to help unmaintained code either given that none of that code will be modified to use the new APIs. Back porting those APIs does not solve the problem.\n\nMy proposal is unrelated to 'unmaintained code'. The unmaintained code will be broken anyway, that is a given - there's no point optimizing for that usecase beyond the `--safe-buffers` flag that was already discussed, as the code itself will never ever get updated.\n\nThe usecase I am proposing this for is for **maintained, third-party code that needs to run on older LTS/maintenance releases**. When faced with this memory issue, a module developer (not application developer!) has several possible ways to approach this in their module:\n1. Rely on `Buffer.safe` and/or `Buffer.unsafe`. This will break their module in anything but the newest versions, affecting their userbase. They will almost certainly not pick this option for that reason alone.\n2. Keep using `Buffer(num)` for as long as they can get away with it - ie. until it gets hard-deprecated. This is an attractive option - they can file it away as \"look at this later\", and from a functional point of view, their code will still keep working, on both old and new versions. It is also very dangerous.\n3. Use a polyfill, or manual feature detection. This will look complicated, people will worry about 'polyfill performance', and be concerned about the amount of moving parts that are involved. They're adding another potential point of failure, so this option is also unlikely to be chosen.\n\nIn practice, the only reasonable option for a module developer is to **keep using the unsafe behaviour**. Only the most security-conscious people who actually understand the issue (it is not simple to understand!) will spend more than a few seconds assessing the impact of using a polyfill and how they can make it a viable option. The rest of the ecosystem remains vulnerable.\n\nIf you backport the `safe` and `unsafe` methods, however, the tradeoffs change. You can now _safely_ use the new methods in your module code, and expect users to have them in their environment - it is much more viable to tell your users to upgrade to the latest minor release on their branch, than to tell them to upgrade to a new, major, breaking version. This is a tradeoff between version compatibility and security that many module developers will consider reasonable.\n\nIn short: my proposal is not about patching a security issue directly in older versions. It's about providing the right tools in the right versions, to drive 'secure behaviour' from module developers, and make it worry-free for them to migrate to the new API. This is a necessity for this to truly get fixed. You _need_ that ecosystem adoption.\n\n> @rvagg: To all those calling this a bug: this is not a bug, it is intended behaviour and is documented, it is not a surprise to anyone who works in core and is common amongst non-web programming environments. \n\nYes, it is absolutely a bug. The Buffer constructor is overloaded, where some methods of invocation cause safe behaviour, and others cause unsafe behaviour. That is a design flaw, and thus a bug. The actual memory-related vulnerabilities in eg. `ws` are just a consequence of that bug.\n\n> @rvagg: Just please stop interpreting this discussion as some newly discovered heartbleed-like situation, that's unhelpful hyperbole that will be dismissed when folks are making considered decisions here.\n\nIt _is_ a new Heartbleed-like situation. This is _not_ an edge case. It affects literally almost everything that takes typed user input (eg. anything with a JSON API). If anything, it's worse - because now you can freely define exactly how much memory you want to get back.\n\n> @seishun: Personally, I use new Buffer(number) a lot in my code. I wouldn't mind replacing those calls with Buffer.alloc(number), but I would mind having the word \"unsafe\" all over my code that doesn't even send data anywhere. Not every Node.js program is a web server, and the concept of \"safety\" depends heavily on the use case.\n\nIt doesn't. In this context, \"safe\" and \"unsafe\" refers to memory safety. A non-zeroed `alloc` call _is_ memory-unsafe. Whether that has implications for your application is a separate discussion entirely.\n\nThe 'unsafe' naming is appropriate and necessary. If nothing else, it is a warning flag to people working on your code, indicating that they need to be careful what they're doing. Which is the case in _any_ case where `Buffer` is used, because your Buffer-filling code may well stop working when the code is changed.\n\nThat having been said, I don't particularly care whether it's called `safe`/`unsafe` or `alloc`/`allocUnsafe`. As long as the unsafe option is clearly marked as such, and does not look like the obvious option. Similarly, `new Buffer.fill(0)` is _not_ an acceptable option, as it is not the obvious option.\n\n> @mikael: This would mean that individual modules decide whether they want to be faster or safer and would leave users of modules with a combination of slower and less safe modules when they want to choose a specific characteristic.\n\nNo such trade-off exists here. Your module being \"safe\" is _not_ optional. The only thing this change does, is make you explicitly decide whether you want to let the `Buffer` module handle the safety, or whether you want to roll your own (possibly more performant) implementation for it. In either case, using uninitialized memory in an application-unsafe manner is _never_ acceptable, regardless of the environment.\n\nTo give an example: If you are using a `Buffer` to store a bitmap, and you _know_ and _ensure_ that you won't access segments before they have been written to, then that's fine. Your code is still safe - as long as it enforces that - but it is more performant, as you don't have the now-unnecessary zerofill.\n\nSo, again, this explicitly isn't about a trade-off of security vs. performance. It's about making a user to decide whether to take care of the security aspect _themselves_, and defaulting to doing it for them if the user has no idea. This has no effect on embedded/low-powered platforms.\n\n> @jasnell: The new APIs are now named Buffer.alloc() and Buffer.zalloc().\n\nThose names do not sufficiently convey the safety characteristics. I _guarantee_ you that any new developer to Node is going to be confused about this, and pick `alloc` because it's shorter and looks \"less special\".\n\n> @trevnorris: The fact that uninitialized memory is returned is also well documented.\n\nWhether this is 'documented' is [irrelevant](https://en.wikipedia.org/wiki/Principle_of_least_astonishment). No amount of documentation will sufficiently change user expectations. When desiging a potentially dangerous API, you must design it so that _even if the user doesn't read the documentation_, the worst thing that'll happen is that performance or availability is affected, but _never_ security.\n\nFor a practical example of this, look at nearly every bit of cryptography code written in the past two decades. Almost without exception, it's broken because it uses cryptographic primitives incorrectly, despite being documented just fine. On the other hand you have libsodium/NaCL, which is designed to be secure-by-default (without removing access to lower-level functionality), and I can count on none fingers the amount of incorrect implementations I have seen for that.\n\n> @mikael: Stop imagining things like \"if we built it today.\" In order to move towards a resolution we have to move towards a shared understanding of the reality of the project and the constraints it has in terms of stability with such a massive ecosystem and userbase.\n\nWhile I understand your sentiment, I partially disagree. Yes, what the ecosystem looks like right now is important - _but that is step two._ Step one is to determine what it should look like if we started from a blank canvas, and _after that_, we need to start considering how close we can get to that without breaking the ecosystem. The second step does not and cannot replace the first - it will just result in poorly-implemented patches and bikeshedding.\n",
+      "created_at": "2016-01-15T02:23:24Z"
+    },
+    {
+      "role": "user",
+      "author": "ariscop",
+      "body": "From @jasnell 's measurements it's a 15% to 60% cost depending on size. Is avoiding that cost really worth the subtle trap? @feross has demonstrated that it exists in real-world code, it's exploitable on the open web right now.\n",
+      "created_at": "2016-01-15T02:24:24Z"
+    },
+    {
+      "role": "user",
+      "author": "wbl",
+      "body": "@mikeal, Getting pwnd on IoT devices also matters. Furthermore, we aren't cutting performance in half. Even if we are reducing the performance of new Buffer(number) by 50%, the overall application's performance will be affected much less, as it doesn't spend 100% of its time in new Buffer(number). Again, do you actually have numbers to back up your assertions that new Buffer(number) is extremely critical?\n",
+      "created_at": "2016-01-15T02:25:36Z"
+    },
+    {
+      "role": "user",
+      "author": "reqshark",
+      "body": "> @trevnorris: we are open to discussion of how to improve the \"surprise\" of the Buffer API, along with how to best address this in a forward looking and backwards compatible way \n\nwell this is good to hear! my 2 cents: can we start documenting `node::Buffer` C++ API?\n\nI think that would help and the C++ ought be documented in general (different issue)\n",
+      "created_at": "2016-01-15T02:27:17Z"
+    },
+    {
+      "role": "user",
+      "author": "ChALkeR",
+      "body": "@feross @mafintosh @alfiepates @paragonie-scott @karissa @wbl\n\nEveryone, https://github.com/ChALkeR/notes/blob/master/Lets-fix-Buffer-API.md — this is my current proposal. That article covers many opinions and questions on the issue, please make sure that you read it before asking further questions and proposing anything else (it might be already covered).\n\n@jasnell, @trevnorris, @mikeal, ptal.\n\n@feross Do I get it right that your proposal on the start of this page does not represent your current point of view anymore? If so, could you update it?\nAnother variant: move to a separate thread and discuss the current proposal from the beginning.\n\nI am going to get some sleep now, it's 5:50 here. Will be back in ~10 hours. Please read my note.\n",
+      "created_at": "2016-01-15T02:50:32Z"
+    },
+    {
+      "role": "user",
+      "author": "feross",
+      "body": "I think this discussion has gone off the rails a bit.\n\nTo limit scope, I think we should stop considering zero-filling or changing the `Buffer` constructor in any way for now. Instead, let's add two new functions:\n- `Buffer.from(value)` - convert from many types to a buffer\n- `Buffer.alloc(size)` - create an uninitialized buffer with given size\n\nGoing forward, we can all use `Buffer.from(val)` the way we currently use `Buffer(val)`, and `Buffer.alloc(size)` when we need uninitialized memory.\n\nThis would have prevented the issues that affected `ws` and `bittorrent-dht` because `Buffer.from(number)` throws instead of revealing uninitialized memory.\n\nThat's it.\n",
+      "created_at": "2016-01-15T03:08:11Z"
+    },
+    {
+      "role": "user",
+      "author": "joepie91",
+      "body": "@feross This would still require eventual deprecation of the Buffer constructor. There's a bit of an obsession with constructor functions in the Node.js community, in my experience - especially amongst new developers (coming from other languages), who are the most affected by this issue.\n\nIf `new Buffer` is not deprecated, then people will just keep using the constructor (also in part because of the compatibility reasons I explained [earlier](https://github.com/nodejs/node/issues/4660#issuecomment-171849636)).\n",
+      "created_at": "2016-01-15T03:10:54Z"
+    },
+    {
+      "role": "user",
+      "author": "wbl",
+      "body": "Not fixing the constructor means all existing code will be exposed to issue, plus new code written based on old code. Why isn't backporting to 5.x a valid answer? It seems like an easy fix is being avoided for spurious reasons.\n",
+      "created_at": "2016-01-15T03:21:55Z"
+    },
+    {
+      "role": "user",
+      "author": "feross",
+      "body": "@joepie91 I think any solution that involves changing `Buffer` will have to happen slowly. We can't change this overnight because of the impact on the ecosystem.\n\nThe best outcome, in my opinion: We add `Buffer.from` and `Buffer.alloc` to node v4, v5, and future versions, and update the docs to recommend using these new constructors.\n\nA long, long time from now, when most of the ecosystem has migrated, we can consider zeroing out the memory from `Buffer(number)`, or removing Buffer, or whatever seems right at that time.\n\nAt least with `Buffer.from` and `Buffer.alloc` we have a clean way forward, where developer intent is expressed clearly and new security bugs of this type won't be written.\n",
+      "created_at": "2016-01-15T03:34:30Z"
+    },
+    {
+      "role": "user",
+      "author": "joepie91",
+      "body": "> I think any solution that involves changing Buffer will have to happen slowly. We can't change this overnight because of the impact on the ecosystem.\n\nI understand that. I am definitely not advocating breaking changes to older versions, for example.\n\n> The best outcome, in my opinion: We add Buffer.from and Buffer.alloc to node v4, v5, and future versions, and update the docs to recommend using these new constructors.\n\nI'd say it should probably do more than 'recommend' - deprecation does not necessarily mean that the functionality has to be removed straight away, but it can definitely help to encourage people to move away from it. The deprecation notice in the PHP manual played an important role in getting people to transition from `mysql_*` to PDO, for example, even though it took years for it to actually get removed.\n\nAditionally, the (non-breaking) backporting would still have to occur for _all_ maintained versions, including 0.10 and 0.12 branches, for the reasons I explained before. In reality, many module authors still support 0.10 and 0.12, and will not use the new methods unless they work across the board.\n\n> A long, long time from now, when most of the ecosystem has migrated, we can consider zeroing out the memory from Buffer(number), or removing Buffer, or whatever seems right at that time.\n\nI would now argue against automatic zeroing, for the reason @ChALkeR described. This would remain a possible issue even in the long run.\n\n> At least with Buffer.from and Buffer.alloc we have a clean way forward, where developer intent is expressed clearly and new security bugs of this type won't be written.\n\nThere would have to be a _reason_ for people to migrate to the new methods, though. Especially for those who come from classical languages and are biased towards the use of constructors (as somebody who helps out people in #Node.js on a daily basis - this is a very serious and very common problem), the old, insecure approach would still look more attractive. Even if there are safer alternatives.\n\nEither a _lot_ of emphasis needs to be put onto the safety consequences of the constructor, or it must be made very clear that using the constructor is not a viable longer-term approach because of eg. deprecation.\n",
+      "created_at": "2016-01-15T03:40:53Z"
+    },
+    {
+      "role": "user",
+      "author": "joepie91",
+      "body": "Further, @thejefflarson raises a concern regarding what V8 expects in the message for [this commit](https://github.com/thejefflarson/node/commit/f563aa8a58ca01c2425bd6c7226593360c707934) (documentation reference is provided at the bottom of that page). I'm not qualified to comment on the validity of this, but it seems plausible.\n",
+      "created_at": "2016-01-15T03:50:09Z"
+    },
+    {
+      "role": "user",
+      "author": "mikeal",
+      "body": "@feross has a good point. Because of the type differentials programmers don't\nhave a \"best practice\" to avoid using `Buffer(number)` when they want\n`Buffer(anything but number)`. Separating this from the whole zero-fill\nissue this would be good to put into people's hands.\n\nOn Thu, Jan 14, 2016 at 7:50 PM, Sven Slootweg notifications@github.com\nwrote:\n\n> Further, @thejefflarson https://github.com/thejefflarson raises a\n> concern regarding what V8 expects in the message for this commit\n> https://github.com/thejefflarson/node/commit/f563aa8a58ca01c2425bd6c7226593360c707934\n> (documentation reference is provided at the bottom of that page).\n> \n> —\n> Reply to this email directly or view it on GitHub\n> https://github.com/nodejs/node/issues/4660#issuecomment-171865589.\n",
+      "created_at": "2016-01-15T04:56:51Z"
+    },
+    {
+      "role": "user",
+      "author": "Qard",
+      "body": "This is a security issue and as such, I believe a fix absolutely should be devised for all LTS releases. FWIW, the original proposal _should_ actually be safe to backport to LTS. Any situation that is relying on that memory to _not_ be zeroed is a security issue in itself and should not be supported anyway.\n\nI think we actually _should_ be zeroing the memory in new Buffer(number) and use a flag to mark it as zeroed until a write happens, so double zeroing would not have a performance impact, then change core to use the unsafe Buffer.allocate(number) where appropriate.\n\nFrankly, expecting users to upgrade to newer major releases just to get a security fix is unacceptable. Many will not upgrade due to inability to quickly make the appropriate code changes, lack of resources to audit the major release at short notice, or even lack of awareness a security issue exists due to only tracking status of the particular LTS they are on.\n\nConsider this: a security patch should, by definition, be a breaking change. It is the removal of a behaviour that has dangerous consequences. A removal is always a breaking change because _someone_ could be relying on that wrongness. Rather than letting them continue in their blissful ignorance of how terrible the thing are doing is, they should be forced to fix it.\n\nI _would_ however suggest getting @chrisdickinson to run his magical npm module finding thing to search for any modules using the single argument buffer initializer and have them evaluated to actually _see_ if it breaks anything in userland, rather than making baseless assumptions about it.\n\nAs for the performance argument: yes, performance is great, speed is a good thing to strive for. You know what's even better than a fast server? A server that hasn't been hacked.\n",
+      "created_at": "2016-01-15T05:43:33Z"
+    },
+    {
+      "role": "user",
+      "author": "kurtseifried",
+      "body": "@Qard \"a security patch should, by definition, be a breaking change\" is so incredibly wrong it beggars belief. The vast majority of security fixes break unwanted/unused behaviours (e.g. Buffer overflows). Speaking with my Red Hat on we go out of our way not to break ABI/API compatibility (because doing so will for sure result in a DoS of all the software that suddenly breaks).\n\n Now in this specific case we have a generally well understood security issue: giving random chunks of memory data to someone without zeroing them out when they request a buffer is known to be a problem/bad idea because most apps don't sanitize memory when they are done (they simply release it).\n\nA perfect and timely example of this is from today's CVE-2016-0777 (the OpenSSH client bug):\n\nIf the OpenSSH client connects to an SSH server that offers the key\nexchange algorithm \"resume@appgate.com\", it sends the global request\n\"roaming@appgate.com\" to the server, after successful authentication. If\nthis request is accepted, the client allocates a roaming buffer out_buf,\nby calling malloc() (and not calloc()) with an out_buf_size that is\narbitrarily chosen by the server:\n\nHad calloc been used... \n",
+      "created_at": "2016-01-15T05:58:40Z"
+    },
+    {
+      "role": "user",
+      "author": "Qard",
+      "body": "@kurtseifried Zeroing the memory in the same API everyone already uses does not break API compatibility. It only removes the ability to do a thing you should not have been allowed to do in the first place. It's a \"breaking\" change in that behaviour differs, but it differs in a way that it _should_.\n",
+      "created_at": "2016-01-15T06:06:48Z"
+    },
+    {
+      "role": "user",
+      "author": "Blub",
+      "body": "But if a program frees up memory containing private data without zeroing it out first then THAT program is the one with a security bug, not the next one allocating and reading the memory...\n",
+      "created_at": "2016-01-15T07:34:42Z"
+    },
+    {
+      "role": "user",
+      "author": "glenjamin",
+      "body": "The discussions and benchmarks around zero-filling by default have all explored an implementation which does `.fill(0)`. This has been shown to be not insignificant slower.\n\nThere has also been some mentions of using `new Buffer(new TypedArray)`, or the low level `calloc` syscall. Is anyone able to explore the perf impacts of these approaches? If it's possible to get zero-filled within an order of magnitude, do most of the objections go away?\n\nOn the docs issue: if I have a string and want to create a buffer, I can read the docs: https://nodejs.org/api/buffer.html#buffer_new_buffer_str_encoding\nEach constructor is documented separately, and I only think I need to handle strings. It's entirely possible for me to have read the docs for the functionality I'm actually using, but miss the fact there is an overload for number. For this reason I support the idea of introducing from/allow or similar, deprecating and removing the existing constructor from the docs.\n\nThis issue reminds me of the Ruby YAML issue from a while back: http://tenderlovemaking.com/2013/02/06/yaml-f7u12.html\n\nSimilarities: \n- input types were overloaded to handle in a documented but not necessarily obvious way (XML parse could trigger YAML)\n- YAML parser had a `.load` method that allowed RCE with untrusted input (I think this was documented), it later gained a `.safe_load`.\n",
+      "created_at": "2016-01-15T07:41:12Z"
+    },
+    {
+      "role": "user",
+      "author": "alliejp-tv",
+      "body": "@Blub True, but that doesn't mean that we can just fob the responsibility off to whomever to avoid doing the things we are capable of doing to improve security.\n\nSecurity is everyone's responsibility.\n",
+      "created_at": "2016-01-15T07:42:44Z"
+    },
+    {
+      "role": "user",
+      "author": "Qard",
+      "body": "Zeroing on destruction is super unpredictable in a GC'd environment. For native buffers, the memory is not necessarily completely unreachable at the point of collection, so it _needs_ to be the responsibility of the destructing code to clean itself up. This is just an unfortunate trait of C/C++ that leaks into the implementation of the JS side of buffers. A buffer can't safely free the memory it points to. It's an unsafe construct by design, really. But we have the opportunity to make it a bit safer here.\n",
+      "created_at": "2016-01-15T07:59:51Z"
+    },
+    {
+      "role": "user",
+      "author": "mcollina",
+      "body": "Let me contribute some little thoughts on this:\n1. The problematic feature of Node we are talking about is that `new Buffer(number)` and `new Buffer(string)` have the same signature. `new Buffer(string)` is very safe to use, but `new Buffer(number)` might cause a memory disclosure. \n2. Developers might pass that value from a client request, without validating it before passing it to `Buffer`. The problem relies on this missed check, because calling `new Buffer(string).fill(0)` does not make any sense. This is the problem `ws` had, and the most critical one.\n3. It is as a security vulnerability as using `malloc` in C. We can argue that a decision was made in the past, and that decision was wrong. Unfortunately _we have to live with `malloc()`_.\n4. This change is going to break backward compatibility just as bad as updating all the C++ modules to the latest V8.\n5. Overloaded constructors are very safe in statically typed languages, but not for dynamic languages. I guess _some_ other security vulnerabilities in JS-land can be found for this very same problem. I would recommend security researchers go around and check.\n\n**Completely alternative option**: remove `new Buffer(string)` in favor of `new Buffer(string, enc)`, which is now safe (thanks to https://github.com/nodejs/node/pull/4514). Bonus points: this requires no new APIs.\n\nAll of this to note that the solution to this problem _might_ not be zero-filling all buffers, and other solutions might be possible as well.\n",
+      "created_at": "2016-01-15T08:34:33Z"
+    },
+    {
+      "role": "user",
+      "author": "jasnell",
+      "body": "@glenjamin ... the PR #4682 does not use the `fill(0)` any more to implement the zero-filled buffer and it includes benchmarks. The approach take by #4682 is to essentially fallback to using Uint8Array when a zero-filled buffer is requested. This uses the `calloc` syscall under the covers. This approach also has the disadvantage of not being pool-allocated. The combination of the no-pooling + calloc makes the zero-filled buffer anywhere from about 20-60% slower than the non-zero-filled alternative, depending on the size of buffer being allocated.\n",
+      "created_at": "2016-01-15T08:44:20Z"
+    },
+    {
+      "role": "user",
+      "author": "glenjamin",
+      "body": "@jasnell Thanks for the clarification, is it feasible to try going a level deeper, and putting some malloc/calloc logic in `node_buffer.cc` directly?\n",
+      "created_at": "2016-01-15T09:33:18Z"
+    },
+    {
+      "role": "user",
+      "author": "ChALkeR",
+      "body": "@mcollina Your solution will not solve anything right now, because any removal would require a very long time to actually happen. Giving the users a new API will allow them to fix their code without waiting for the removal of `new Buffer(value)`. Thus, the solution could not consist only of the removal, and has to introduce new, safer API.\n",
+      "created_at": "2016-01-15T10:00:02Z"
+    },
+    {
+      "role": "user",
+      "author": "seishun",
+      "body": "@mcollina\n\n> Completely alternative option: remove new Buffer(string) in favor of new Buffer(string, enc), which is now safe (thanks to #4514). Bonus points: this requires no new APIs.\n\nThat's what I suggested way back in https://github.com/nodejs/node/issues/4660#issuecomment-171722581. This would cover ~~all the~~ both vulnerabilities presented so far.\n\n@ChALkeR\n\n> Giving the users a new API will allow them to fix their code without waiting for the removal of new Buffer(value).\n\nThey can already use `new Buffer(string, enc)`, and in the next major version it's guaranteed to throw if they accidentally pass a number.\n",
+      "created_at": "2016-01-15T11:11:30Z"
+    },
+    {
+      "role": "user",
+      "author": "mcollina",
+      "body": "@seishun too many comments, sorry I've missed that. :+1: for this solution, even though it makes the code a little bit more wordy, from `new Buffer('hello')` to `new Buffer('hello', 'utf8')`.\n\n@ChALkeR the only thing that would be needed in v4 (I would not touch anything else) is a deprecation warning.\n",
+      "created_at": "2016-01-15T11:19:01Z"
+    },
+    {
+      "role": "user",
+      "author": "Blub",
+      "body": "@alfiepates perhaps, but zeroing isn't free and you're basically cleaning up after a mess left by a tiny fraction of programs. Most of the time the allocated buffer will be worthless. I can understand your point of view, though.\n",
+      "created_at": "2016-01-15T13:06:57Z"
+    },
+    {
+      "role": "user",
+      "author": "thejefflarson",
+      "body": "So, I went ahead and benchmarked my change in #4706 using Benchmark.js. There is a slight performance hit, but it may be negliglible: most likely around 3.09% but as little as 0.15%. \n\nhttps://gist.github.com/thejefflarson/bb6a7c651cddd305a18f\n\nAt this point I don't see the harm in switching to calloc. The current situation makes both `Buffer` and `ArrayBuffer` instances unsafe.\n\n(edited to fix the math)\n",
+      "created_at": "2016-01-15T18:04:45Z"
+    },
+    {
+      "role": "user",
+      "author": "mikeal",
+      "body": "> So, I went ahead and benchmarked my change in #4706 using Benchmark.js\n\nNode.js has a series of benchmarks for Buffer, you should run those in order to quantify the difference. You'll find them in the benchmarks directory under buffers :)\n",
+      "created_at": "2016-01-15T18:10:05Z"
+    },
+    {
+      "role": "user",
+      "author": "thejefflarson",
+      "body": "@mikeal thanks, updated the gist with those numbers. Sometimes it's faster, sometimes slower.\n",
+      "created_at": "2016-01-15T18:19:39Z"
+    },
+    {
+      "role": "user",
+      "author": "Fishrock123",
+      "body": "> The current situation makes both `Buffer` and `ArrayBuffer` instances unsafe.\n\nIf by `ArrayBuffer`, you mean `TypedArray`(s), this isn't true. We reset the flag so TypedArrays are zero-filled.\n",
+      "created_at": "2016-01-15T18:26:45Z"
+    },
+    {
+      "role": "user",
+      "author": "thejefflarson",
+      "body": "@Fishrock123 oh, yes I see.\n",
+      "created_at": "2016-01-15T18:30:26Z"
+    },
+    {
+      "role": "user",
+      "author": "ChALkeR",
+      "body": "Another vuln, now fixed and public: [Mongoose vulnerability](https://github.com/Automattic/mongoose/issues/3764) — assigning a number to the property that is `Buffer`-typed saves unitialized memory block to the DB. [POC](https://gist.github.com/ChALkeR/d4a8055625221b6e65f0).\n",
+      "created_at": "2016-01-15T20:41:01Z"
+    },
+    {
+      "role": "user",
+      "author": "ChALkeR",
+      "body": "Another issue, now fixed and public, in `node-floody` by @soldair: https://github.com/soldair/node-floody/commit/6c44722312131f4ac8a1af40f0f861c85efe01b0. POC: `var f = require('floody')(process.stdout); f.write(1000); f.stop();`.\n",
+      "created_at": "2016-01-15T20:45:34Z"
+    },
+    {
+      "role": "user",
+      "author": "jsha",
+      "body": "Sequelize also had this issue, now fixed and public: https://github.com/sequelize/sequelize/commit/cbfaa4f0a135cfc55874c9bfc39ead2d85c417e9\n",
+      "created_at": "2016-01-15T22:43:54Z"
+    },
+    {
+      "role": "user",
+      "author": "rwaldron",
+      "body": "Ping @ those who are not watching @jasnell's [proposal](https://github.com/nodejs/node-eps/pull/4)\n",
+      "created_at": "2016-01-16T17:04:35Z"
+    },
+    {
+      "role": "user",
+      "author": "jasnell",
+      "body": "https://github.com/nodejs/node/pull/4682 has landed adding safe constructors for v6.\n",
+      "created_at": "2016-03-16T16:15:27Z"
+    },
+    {
+      "role": "user",
+      "author": "mhart",
+      "body": "Wow, epic :rocket: – amazing job!\n",
+      "created_at": "2016-03-16T16:27:31Z"
+    },
+    {
+      "role": "user",
+      "author": "joepie91",
+      "body": "Excellent!\n",
+      "created_at": "2016-03-16T17:17:15Z"
+    },
+    {
+      "role": "user",
+      "author": "ChALkeR",
+      "body": "Related: #5799.\n",
+      "created_at": "2016-03-19T07:34:49Z"
+    },
+    {
+      "role": "user",
+      "author": "feross",
+      "body": "Hey folks!\n\nIf you followed this issue, then you're probably like me and want to start using `Buffer.from` and `Buffer.alloc` in the new code you write. But if you're also trying to support Node.js v4.x and earlier versions, then you need to check if these functions exist before using them, since old Node.js versions lack support.\n\nThere's a better way! You can use [`safe-buffer`](https://github.com/feross/safe-buffer).\n\n`safe-buffer` implements the new Buffer APIs for Node.js versions back to v0.10. In newer Node.js versions, the default `Buffer` implementation is used.\n\nHope someone finds this useful!\n",
+      "created_at": "2016-05-30T06:26:55Z"
+    }
+  ]
+}

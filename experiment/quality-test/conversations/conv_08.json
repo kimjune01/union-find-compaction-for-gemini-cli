@@ -1,0 +1,1653 @@
+{
+  "source": "github",
+  "repo": "vercel/next.js",
+  "issue_number": 7322,
+  "title": "Warning: Prop className did not match.",
+  "url": "https://github.com/vercel/next.js/issues/7322",
+  "messages": [
+    {
+      "role": "user",
+      "author": "th0th",
+      "body": "# Examples bug report\r\n\r\n## Example name\r\n[with-styled-components](https://github.com/zeit/next.js/tree/canary/examples/with-styled-components)\r\n\r\n## Describe the bug\r\nAlso posted here: #2538\r\n\r\nUsing `css` prop introduced with styled-components v4 causes `Warning: Prop className did not match.`.\r\n\r\n## To Reproduce\r\nAdd any HTML element with `css` prop.\r\n\r\n## Expected behavior\r\nCorrectly styled rendering on the server side without any warnings.\r\n\r\n## Screenshots\r\n![57497472-7b657c00-72e0-11e9-84c5-e7e5fa0d351c](https://user-images.githubusercontent.com/698079/57632876-37f26280-75ab-11e9-91a2-a270d92f122d.png)\r\n\r\n## System information\r\n - OS: Windows\r\n - Chrome\r\n - Version of Next.js: 8.1.0\r\n\r\n## Additional context\r\nHere is an example I created to demonstrate the issue: https://codesandbox.io/embed/jlwvwyy0ow\r\n\r\nOpen this and refresh once the building is done: https://jlwvwyy0ow.sse.codesandbox.io/",
+      "created_at": "2019-05-13T15:20:36Z"
+    },
+    {
+      "role": "user",
+      "author": "kumarabhirup",
+      "body": "Happens to me everytime. +1",
+      "created_at": "2019-05-13T15:32:30Z"
+    },
+    {
+      "role": "user",
+      "author": "Tomekmularczyk",
+      "body": "The same happens with Next v.7. This error doesn't occur when the server starts, only after making changes in the code. \r\n",
+      "created_at": "2019-05-19T17:45:00Z"
+    },
+    {
+      "role": "user",
+      "author": "elliotbonneville",
+      "body": "I'm seeing the same error. It doesn't appear to affect the live app, but it's very annoying to have it constantly appearing locally.",
+      "created_at": "2019-05-23T20:31:02Z"
+    },
+    {
+      "role": "user",
+      "author": "cabralada",
+      "body": "I have a similar error, but with inline style. \r\n\r\n```\r\nWarning: Prop `style` did not match. Server: \"height:50px;margin-left:4vw;cursor:pointer;width:auto;margin-top:0px\" Client: \"height:30px;margin-left:4vw;cursor:pointer;width:auto;margin-top:6px\"\r\n```\r\n\r\n😢 ",
+      "created_at": "2019-05-24T14:53:06Z"
+    },
+    {
+      "role": "user",
+      "author": "th0th",
+      "body": "I hope once enough people raise their voices here this issue will get attention 🙂",
+      "created_at": "2019-05-24T17:43:51Z"
+    },
+    {
+      "role": "user",
+      "author": "SarKurd",
+      "body": "I face this issue in my simple navbar active className, is there a workaround until official fix?",
+      "created_at": "2019-05-26T05:35:50Z"
+    },
+    {
+      "role": "user",
+      "author": "timneutkens",
+      "body": "Use 👍 on the initial issue instead of \"+1\" and \"same problem\".\r\n\r\nIf you do feel like posting +1 provide a clear and concise reproduction that is clearly reproducible. Otherwise the comment is not actionable.\r\n\r\nThis goes for any open-source project you're commenting on.\r\n\r\nThanks 🙏 ",
+      "created_at": "2019-05-27T13:50:53Z"
+    },
+    {
+      "role": "user",
+      "author": "c0b41",
+      "body": "Seems like they fixed latest release this bug https://github.com/styled-components/styled-components/issues/2563",
+      "created_at": "2019-05-31T15:36:47Z"
+    },
+    {
+      "role": "user",
+      "author": "th0th",
+      "body": "Nope, that's a totally different log message, it is the one with yellow background on the screenshot I posted, it disappeared after the update.\r\n\r\nFirst one, warning about different classNames is still there. ",
+      "created_at": "2019-05-31T15:57:43Z"
+    },
+    {
+      "role": "user",
+      "author": "Timer",
+      "body": "Tagging this as up for grabs to investigate by a motivated contributor.",
+      "created_at": "2019-06-14T15:09:34Z"
+    },
+    {
+      "role": "user",
+      "author": "quantizor",
+      "body": "Hey there, please update babel-plugin-styled-components to the latest version which should fix css prop mismatches: https://github.com/styled-components/babel-plugin-styled-components/releases/tag/v1.10.1\r\n\r\nI've noticed an error message in development still, but no ill effects from it so can be safely ignored.",
+      "created_at": "2019-06-16T16:21:23Z"
+    },
+    {
+      "role": "user",
+      "author": "ThisIsEsh",
+      "body": "Still same after fix posted above, and can't ignore it. Having some layout problems when this error occurs.",
+      "created_at": "2019-06-20T07:17:43Z"
+    },
+    {
+      "role": "user",
+      "author": "ShayDavidson",
+      "body": "So do I, when this occurs I'm getting layout errors and my component go into a weird state where they do not render based on new props.\r\n\r\nIt happens for me in an inline style.",
+      "created_at": "2019-07-03T17:48:12Z"
+    },
+    {
+      "role": "user",
+      "author": "quantizor",
+      "body": "Make sure your babel plugin version is up to date, lots of fixes in the last couple weeks. We also made changes to how we do dev styles in v5 that largely address this issue",
+      "created_at": "2019-07-03T17:58:56Z"
+    },
+    {
+      "role": "user",
+      "author": "ShayDavidson",
+      "body": "The `Prop 'style' does not match` is not solved with the babel plugin upgrade.",
+      "created_at": "2019-07-03T18:00:39Z"
+    },
+    {
+      "role": "user",
+      "author": "quantizor",
+      "body": "\"style\" is an inline style and nothing to do with styled-components, so that's a totally separate issue",
+      "created_at": "2019-07-03T18:01:52Z"
+    },
+    {
+      "role": "user",
+      "author": "jass-trix",
+      "body": "what's the fix for this one? i always get this warning everytime i refresh.\r\ni always do refresh everytime change something, bad old habit 😅\r\neverytime i do refresh it shows warning and the styling all gone ",
+      "created_at": "2019-07-03T18:12:00Z"
+    },
+    {
+      "role": "user",
+      "author": "masives",
+      "body": "It appears to be an issue that backend generates styled component but client doesn't get it/doesn't use it and instead of using server side rendered style client generates it by itself. \r\n\r\nedit: I just downloaded the example and couldn't reproduce the issue while using the same code as in your codepen sandbox. Tested in chrome and firefox and it behaves the same (no error nor warning).\r\n",
+      "created_at": "2019-07-08T11:55:27Z"
+    },
+    {
+      "role": "user",
+      "author": "quantizor",
+      "body": "@jass-trix have you tried the s-c v5 beta? We made a lot of changes to eliminate this issue.",
+      "created_at": "2019-07-08T22:53:03Z"
+    },
+    {
+      "role": "user",
+      "author": "jass-trix",
+      "body": "@probablyup how to use this version? ",
+      "created_at": "2019-07-09T02:06:53Z"
+    },
+    {
+      "role": "user",
+      "author": "JohnGrisham",
+      "body": "> It appears to be an issue that backend generates styled component but client doesn't get it/doesn't use it and instead of using server side rendered style client generates it by itself.\r\n> \r\n> edit: I just downloaded the example and couldn't reproduce the issue while using the same code as in your codepen sandbox. Tested in chrome and firefox and it behaves the same (no error nor warning).\r\n\r\nI have this issue as well after upgrading to next 9.0.2 and styled components 4.3.2 but it does not occur every time. I have to go in and out of debug a few times to replicate at certain points. I have attempted the fixes suggested through similar issues such as https://github.com/styled-components/babel-plugin-styled-components/issues/78. Seems to only effect development and I'm experiencing layout breaks in one section of the app. Still not sure if it is related to styled components or next but it does seem to have to do with SSR classnames being different on client/server I'm using the recommended babel plugin to fix this. **babel-plugin-styled-components**",
+      "created_at": "2019-07-23T13:41:23Z"
+    },
+    {
+      "role": "user",
+      "author": "quantizor",
+      "body": "We changed how this all works in v5, I’d recommend trying it out.\n\nOn Tue, Jul 23, 2019 at 9:42 AM JohnGrisham <notifications@github.com>\nwrote:\n\n> It appears to be an issue that backend generates styled component but\n> client doesn't get it/doesn't use it and instead of using server side\n> rendered style client generates it by itself.\n>\n> edit: I just downloaded the example and couldn't reproduce the issue while\n> using the same code as in your codepen sandbox. Tested in chrome and\n> firefox and it behaves the same (no error nor warning).\n>\n> I have this issue as well after upgrading to next 9.0.2 and styled\n> components 4.3.2 but it does not occur every time. I have to go in and out\n> of debug a few times to replicate at certain points. I have attempted the\n> fixes suggested through similar issues such as\n> styled-components/babel-plugin-styled-components#78\n> <https://github.com/styled-components/babel-plugin-styled-components/issues/78>.\n> Seems to only effect development and I'm experiencing layout breaks in one\n> section of the app. Still not sure if it is related to styled components or\n> next but it does seem to have to do with SSR classnames being different on\n> client/server I'm using the recommended babel plugin to fix this.\n> *babel-plugin-styled-components*\n>\n> —\n> You are receiving this because you were mentioned.\n> Reply to this email directly, view it on GitHub\n> <https://github.com/zeit/next.js/issues/7322?email_source=notifications&email_token=AAELFVTNGZGAJJXB2ARVGVLQA4DCZA5CNFSM4HMQ4H2KYY3PNVWWK3TUL52HS4DFVREXG43VMVBW63LNMVXHJKTDN5WW2ZLOORPWSZGOD2TEYOA#issuecomment-514214968>,\n> or mute the thread\n> <https://github.com/notifications/unsubscribe-auth/AAELFVSKJJJ4YJSZTC4J4BLQA4DCZANCNFSM4HMQ4H2A>\n> .\n>\n",
+      "created_at": "2019-07-23T13:52:11Z"
+    },
+    {
+      "role": "user",
+      "author": "JohnGrisham",
+      "body": "I was in the process of trying the beta but I appreciate your quick response 👍 @probablyup ",
+      "created_at": "2019-07-23T13:56:48Z"
+    },
+    {
+      "role": "user",
+      "author": "JohnGrisham",
+      "body": "@probablyup I can confirm that this doesn't seem to be an issue in v5.0.0-beta.8. I look forward to the full release. ",
+      "created_at": "2019-07-23T14:53:32Z"
+    },
+    {
+      "role": "user",
+      "author": "haywirez",
+      "body": "I'm still getting the issue with `\"^5.0.0-beta.8\"` and `\"babel-plugin-styled-components\": \"^1.10.6\"` 😞 ",
+      "created_at": "2019-07-26T11:03:11Z"
+    },
+    {
+      "role": "user",
+      "author": "278kunal",
+      "body": "Still facing the same issue with `\"babel-plugin-styled-components\": \"1.10.1\"` and `\"styled-components\": \"3.4.0\"`.\r\n\r\nI am using the following config in .babelrc\r\n\r\n```\r\n\"plugins\": [\r\n        [\r\n            \"babel-plugin-styled-components\",\r\n            {\r\n                \"ssr\": true,\r\n                \"displayName\": true,\r\n                \"preprocess\": false\r\n            }\r\n        ],\r\n        [\r\n            \"transform-runtime\",\r\n            {\r\n                \"regenerator\": true\r\n            }\r\n        ],\r\n        \"transform-object-assign\",\r\n        \"transform-class-properties\",\r\n        \"transform-es2015-modules-commonjs\",\r\n        \"transform-react-remove-prop-types\",\r\n        \"transform-imports\"\r\n    ],\r\n    \"env\": {\r\n        \"development\": {\r\n            \"plugins\": [\r\n                [\r\n                    \"babel-plugin-styled-components\",\r\n                    {\r\n                        \"ssr\": true,\r\n                        \"displayName\": true,\r\n                        \"preprocess\": false\r\n                    }\r\n                ],\r\n                \"transform-ensure-ignore\"\r\n            ]\r\n        },\r\n        \"test\": {\r\n            \"plugins\": [\r\n                \"dynamic-import-node\"\r\n            ]\r\n        }\r\n    }\r\n```",
+      "created_at": "2019-07-31T13:00:39Z"
+    },
+    {
+      "role": "user",
+      "author": "JohnGrisham",
+      "body": "@278kunal This may be unrelated but according to styled components when envs are specified styled components plugin has to be in each of the environments. https://github.com/styled-components/babel-plugin-styled-components/issues/78. In my case I had to update to the alpha of the latest release of styled components.  I would try that as well as including your plugins in all environments. ",
+      "created_at": "2019-07-31T13:15:48Z"
+    },
+    {
+      "role": "user",
+      "author": "VitalyKrenel",
+      "body": "Hey guys! The issue is still open, but no relevant comments for a month - is there any update?\r\nI have the same problem:\r\n\r\n```\r\nWarning: Prop `className` did not match. Server: \"sc-bwzfXH bBouZQ\" Client: \"sc-bdVaJa cVPsWU\"\r\n```\r\n\r\nTechnically it's fine because it does not affect production, but the message itself is slightly annoying.",
+      "created_at": "2019-08-26T11:34:43Z"
+    },
+    {
+      "role": "user",
+      "author": "dubKelly",
+      "body": "https://github.com/styled-components/babel-plugin-styled-components/issues/78#issuecomment-361160935",
+      "created_at": "2019-08-27T19:58:13Z"
+    },
+    {
+      "role": "user",
+      "author": "nilportugues",
+      "body": "@dubKelly thanks for sharing the solution. @timneutkens you way close this... or at least update the example with the working solution :)",
+      "created_at": "2019-09-18T22:58:32Z"
+    },
+    {
+      "role": "user",
+      "author": "JohnGrisham",
+      "body": "@nilportugues While I can confirm that updating to the latest beta of styled components and using the plugin for styled-components as well as including the plugins for all environments this has only been a partial fix. I am still experiencing this warning after applying all of the solutions. This is more of an issue with styled components I believe since the warning is a result of styles being rendered server side and then rendered as another name in the client. The styled-components plugin is supposed to solve this issue and keep the hashing consistent. https://github.com/styled-components/babel-plugin-styled-components",
+      "created_at": "2019-09-19T12:21:52Z"
+    },
+    {
+      "role": "user",
+      "author": "xphenixo",
+      "body": "Hi, \r\ni solved the problem by using the following set up and it is working just fine!\r\n\r\n```\r\nimport Document from 'next/document'\r\nimport { ServerStyleSheet } from 'styled-components'\r\n\r\nexport default class MyDocument extends Document {\r\n  static async getInitialProps (ctx) {\r\n    const sheet = new ServerStyleSheet()\r\n    const originalRenderPage = ctx.renderPage\r\n\r\n    try {\r\n      ctx.renderPage = () =>\r\n        originalRenderPage({\r\n          enhanceApp: App => props => sheet.collectStyles(<App {...props} />)\r\n        })\r\n\r\n      const initialProps = await Document.getInitialProps(ctx)\r\n      return {\r\n        ...initialProps,\r\n        styles: (\r\n          <>\r\n            {initialProps.styles}\r\n            {sheet.getStyleElement()}\r\n          </>\r\n        )\r\n      }\r\n    } finally {\r\n      sheet.seal()\r\n    }\r\n  }\r\n}\r\n```\r\nhttps://github.com/zeit/next.js/tree/canary/examples/with-styled-components\r\n",
+      "created_at": "2019-09-24T12:45:04Z"
+    },
+    {
+      "role": "user",
+      "author": "JohnGrisham",
+      "body": "Potentially solved by https://github.com/styled-components/styled-components/releases/tag/v4.4.0 I have not had time to test this yet.",
+      "created_at": "2019-09-24T13:04:40Z"
+    },
+    {
+      "role": "user",
+      "author": "timneutkens",
+      "body": "Checked with @probablyup and it seems that that release should solve the issue indeed.",
+      "created_at": "2019-09-24T14:00:21Z"
+    },
+    {
+      "role": "user",
+      "author": "sangdth",
+      "body": "I'm not using styled-components and still get this issue. Please. There are many people here already said this.",
+      "created_at": "2019-09-29T16:16:32Z"
+    },
+    {
+      "role": "user",
+      "author": "timneutkens",
+      "body": "@sangdth please read this thread: https://twitter.com/timneutkens/status/1154351052973625346",
+      "created_at": "2019-09-29T18:44:01Z"
+    },
+    {
+      "role": "user",
+      "author": "nvuhung",
+      "body": "I am applying all of solutions but it's not working, the issue still happen. \r\n\r\n\"next\": \"^9.0.7\",\r\n\"styled-components\": \"^4.4.0\",\r\n\"babel-plugin-styled-components\": \"^1.10.6\",",
+      "created_at": "2019-10-05T06:37:07Z"
+    },
+    {
+      "role": "user",
+      "author": "AryanJ-NYC",
+      "body": "@JohnGrisham were you able to test with `styled-components@4.4.0`? I just upgraded and am still getting the error.",
+      "created_at": "2019-10-07T05:02:06Z"
+    },
+    {
+      "role": "user",
+      "author": "JohnGrisham",
+      "body": "@AryanJ-NYC I have not yet tried this version I will let you know when I have and what result I got.",
+      "created_at": "2019-10-07T12:35:09Z"
+    },
+    {
+      "role": "user",
+      "author": "nitindhar7",
+      "body": "Still happening with `styled-components@4.4.1`",
+      "created_at": "2019-11-18T03:25:52Z"
+    },
+    {
+      "role": "user",
+      "author": "alextsoi",
+      "body": "https://github.com/zeit/next.js/issues/7423\r\nSeems there is solution in this URL.",
+      "created_at": "2019-11-20T05:25:58Z"
+    },
+    {
+      "role": "user",
+      "author": "VienNguyen113",
+      "body": " I'm still got this error too.",
+      "created_at": "2019-11-25T04:54:47Z"
+    },
+    {
+      "role": "user",
+      "author": "atirudom",
+      "body": "Here to confirm again as @alextsoi said, #7423 solved my issue. (see comment by Sergioamjr)",
+      "created_at": "2019-11-27T16:28:58Z"
+    },
+    {
+      "role": "user",
+      "author": "tsirolnik",
+      "body": "I'm using MUI with Styled Components and I'm getting this error too.",
+      "created_at": "2019-11-29T09:33:27Z"
+    },
+    {
+      "role": "user",
+      "author": "girardiricardo",
+      "body": "I'm using `styled-components@4.4.1` and still got this error too.\r\n\r\n",
+      "created_at": "2019-11-30T18:48:36Z"
+    },
+    {
+      "role": "user",
+      "author": "bengrunfeld",
+      "body": "Not sure if this will actually help anyone (and it may just be shit programming on my end, so apologies if that is the case), but my instance of this error actually came from my own code. \r\n\r\nSo, in the following code, we have a styled component. Inside the styled component, we check for the existence of the prop `displayMobile`. If it's there, we use styles, and if not, it returns empty. The error is generated by the second usage of the props retrieval function found inside the template string - `${({ theme }) => theme.colors.green}`. As soon as I take that out, the above error goes away. Not sure if this helps anyone out, but it took me an embarrassingly large amount of hours to deduce that.\r\n\r\n```\r\nimport styled from \"styled-components\";\r\n\r\nexport const ServiceBox = styled.div`\r\n  ${({ displayMobile }) =>\r\n    displayMobile\r\n      ? `\r\n      flex-direction: column;\r\n      width: 15.2rem;\r\n      height: 16.2rem;\r\n      padding-top: 1.7rem;\r\n      justify-content: space-between;\r\n      border: 0.4rem solid ${({ theme }) => theme.colors.green};\r\n    `\r\n      : \"\"}\r\n`;\r\n```",
+      "created_at": "2019-12-01T21:21:02Z"
+    },
+    {
+      "role": "user",
+      "author": "TheDSCPL",
+      "body": "Found the solution.\r\n\r\nEither this (better in the production bundle size):\r\n[https://github.com/zeit/next.js/issues/4068#issuecomment-382298624](https://github.com/zeit/next.js/issues/4068#issuecomment-382298624)\r\nor this (same as the above but without checking the environment):\r\n[https://github.com/zeit/next.js/issues/4068#issuecomment-485014513](https://github.com/zeit/next.js/issues/4068#issuecomment-485014513)\r\n\r\nI think the boilerplate code in all the links referenced by the [styled-components documentation on the use case with Next.js](https://www.styled-components.com/docs/advanced#nextjs) should be updated to include the [styled-components babel plugin](https://www.npmjs.com/package/babel-plugin-styled-components) as well. Because the `_document.js` and `_app.js` files aren't the complete boilerplate!",
+      "created_at": "2019-12-02T23:39:46Z"
+    },
+    {
+      "role": "user",
+      "author": "TheDSCPL",
+      "body": "Well,  actually I believe I've found a bug in the hot reload part of Next.JS's dev server.\r\n\r\nI got the same warning again so I put a console.log in the `_default` function inside `babel-plugin-styled-components` module's `lib/index.js` file to see when the plugin was being used.\r\n\r\nIt turns out that the initial build runs the plugin but subsequent rebuilds (whenever a file is edited) don't rerun babel. Is this due to some kind of incremental build algorithm, @timneutkens?\r\n\r\nAnyway, I'm not sure of what is causing the problem but it seems to be a problem during the rebuild process.",
+      "created_at": "2019-12-03T00:30:57Z"
+    },
+    {
+      "role": "user",
+      "author": "timneutkens",
+      "body": "We cache Babel output and only rebuild the parts that cache, if you add a plugin the plugin itself is executed on bootup and the visitors will be executed when you change files. ",
+      "created_at": "2019-12-03T17:06:48Z"
+    },
+    {
+      "role": "user",
+      "author": "DaoHuyTuan",
+      "body": "> [styled-components/babel-plugin-styled-components#78 (comment)](https://github.com/styled-components/babel-plugin-styled-components/issues/78#issuecomment-361160935)\r\n\r\ni confirm this fixed just follow that instruction ",
+      "created_at": "2019-12-28T19:44:54Z"
+    },
+    {
+      "role": "user",
+      "author": "ziimakc",
+      "body": "anyone gets this error again?",
+      "created_at": "2020-01-10T14:11:57Z"
+    },
+    {
+      "role": "user",
+      "author": "ziimakc",
+      "body": "in my case problem was with reexporting styled components after aplaying typescript Theme type:\r\n```\r\nimport { Theme } from '@shared'\r\nimport * as styledComponents from 'styled-components'\r\nimport { ThemedStyledComponentsModule } from 'styled-components'\r\n\r\nconst {\r\n  default: styled,\r\n  css,\r\n  keyframes,\r\n  ThemeProvider,\r\n  createGlobalStyle,\r\n  ServerStyleSheet\r\n} = (styledComponents as unknown) as ThemedStyledComponentsModule<Theme>\r\n\r\nexport { css, keyframes, styled, ThemeProvider, createGlobalStyle, ServerStyleSheet }\r\n```\r\nAfter i rewrite import to standart styled-components error has gone.",
+      "created_at": "2020-01-12T17:21:46Z"
+    },
+    {
+      "role": "user",
+      "author": "jaedung",
+      "body": "For those who are using `material-ui`, the following code should be added in `_document.tsx` .\r\n\r\n```\r\nimport React from 'react';\r\nimport Document, { Head, Main, NextScript } from 'next/document';\r\nimport { ServerStyleSheets } from '@material-ui/core/styles';\r\nimport theme from '../src/theme';\r\n\r\nexport default class MyDocument extends Document {\r\n  render() {\r\n    return (\r\n      <html lang=\"en\">\r\n        <Head>\r\n          {/* PWA primary color */}\r\n          <meta name=\"theme-color\" content={theme.palette.primary.main} />\r\n          <link\r\n            rel=\"stylesheet\"\r\n            href=\"https://fonts.googleapis.com/css?family=Roboto:300,400,500,700&display=swap\"\r\n          />\r\n        </Head>\r\n        <body>\r\n          <Main />\r\n          <NextScript />\r\n        </body>\r\n      </html>\r\n    );\r\n  }\r\n}\r\n\r\nMyDocument.getInitialProps = async ctx => {\r\n  // Resolution order\r\n  //\r\n  // On the server:\r\n  // 1. app.getInitialProps\r\n  // 2. page.getInitialProps\r\n  // 3. document.getInitialProps\r\n  // 4. app.render\r\n  // 5. page.render\r\n  // 6. document.render\r\n  //\r\n  // On the server with error:\r\n  // 1. document.getInitialProps\r\n  // 2. app.render\r\n  // 3. page.render\r\n  // 4. document.render\r\n  //\r\n  // On the client\r\n  // 1. app.getInitialProps\r\n  // 2. page.getInitialProps\r\n  // 3. app.render\r\n  // 4. page.render\r\n\r\n  // Render app and page and get the context of the page with collected side effects.\r\n  const sheets = new ServerStyleSheets();\r\n  const originalRenderPage = ctx.renderPage;\r\n\r\n  ctx.renderPage = () =>\r\n    originalRenderPage({\r\n      enhanceApp: App => props => sheets.collect(<App {...props} />),\r\n    });\r\n\r\n  const initialProps = await Document.getInitialProps(ctx);\r\n\r\n  return {\r\n    ...initialProps,\r\n    // Styles fragment is rendered after the app and page rendering finish.\r\n    styles: [...React.Children.toArray(initialProps.styles), sheets.getStyleElement()],\r\n  };\r\n};\r\n```\r\n\r\nThe code is from [https://github.com/mui-org/material-ui/blob/master/examples/nextjs/pages/_document.js](url)\r\n",
+      "created_at": "2020-01-14T05:31:48Z"
+    },
+    {
+      "role": "user",
+      "author": "dheerajmpai",
+      "body": "This is a bug. Check out here https://github.com/mui-org/material-ui/issues/18018\r\n\r\n",
+      "created_at": "2020-01-20T16:59:32Z"
+    },
+    {
+      "role": "user",
+      "author": "adriangzz",
+      "body": "I'm not using any ui framework and i'm getting this error.",
+      "created_at": "2020-01-31T02:43:44Z"
+    },
+    {
+      "role": "user",
+      "author": "edgarcheverier",
+      "body": "Following this article, I managed to make it work but isn't straight forward, I hope it can help someone.\r\nhttps://medium.com/manato/ssr-with-next-js-styled-components-and-material-ui-b1e88ac11dfa",
+      "created_at": "2020-01-31T08:52:14Z"
+    },
+    {
+      "role": "user",
+      "author": "carlos-menezes",
+      "body": "I'm having this issue aswell. The background image of the `Logo` components disappears after I reload the page, having made changes to the code. I'm using antd components.\r\n\r\n```tsx\r\nimport styled from 'styled-components'\r\n\r\ninterface NavigationProps {\r\n  selected: string;\r\n}\r\n\r\nconst Navigation = (props: NavigationProps) => {\r\n  return (\r\n    <Header>\r\n      <Logo />\r\n      <Menu\r\n        theme=\"dark\"\r\n        mode=\"horizontal\"\r\n        defaultSelectedKeys={[props.selected]}\r\n        style={{ lineHeight: '64px' }}\r\n      >\r\n        <Menu.Item key=\"Index\">nav 1</Menu.Item>\r\n        <Menu.Item key=\"About\">nav 2</Menu.Item>\r\n      </Menu>\r\n    </Header>\r\n  )\r\n}\r\n\r\nconst Logo = styled.div`\r\n  width: 120px;\r\n  height: auto;\r\n  background-image: url('images/logo.svg');\r\n  background-size: contain;\r\n  background-position: left center;\r\n  background-repeat: no-repeat;\r\n  margin: 16px 24px 16px 0;\r\n  float: left;\r\n`\r\n```",
+      "created_at": "2020-02-02T19:45:53Z"
+    },
+    {
+      "role": "user",
+      "author": "TheDSCPL",
+      "body": "@carlos-menezes Have you read these links?\r\nhttps://styled-components.com/docs/advanced#server-side-rendering\r\nhttps://styled-components.com/docs/tooling#babel-plugin",
+      "created_at": "2020-02-03T11:17:57Z"
+    },
+    {
+      "role": "user",
+      "author": "nicholasmordecai",
+      "body": "So I managed to fix this in my situation.. I'm just running React 16.12.0, Next 9.2.1 and Material 4.9.1. Much like everyone else here I found that it was fine on the initial save, however when reloading in browser it was throwing an error where the class names were different. I found a fix for now.\r\n\r\n```\r\n$ npm install --save-dev babel-plugin-styled-components\r\n$ touch .babelrc\r\n```\r\nPaste the following into your .babelrc file - \r\n\r\n```\r\n{\r\n    \"plugins\": [\r\n      [\"styled-components\", { \"ssr\": true, \"displayName\": true, \"preprocess\": false } ],\r\n    ],\r\n    \"presets\": [\"next/babel\"]\r\n}\r\n```\r\n\r\nJust re-run your dev env and the problem went away. Apologies if I've done something stupid here, I'm still relatively new to next.js & react!",
+      "created_at": "2020-02-05T11:41:46Z"
+    },
+    {
+      "role": "user",
+      "author": "jordykoppen",
+      "body": "Okay, so I've been plagued by this issue for a couple of weeks now. Only just realized that only `.babelrc` is picked up by Next. I recently switched to vim and appended the filename with `.json for vim to recognize it as a JSON file`\r\n\r\nIn short: Make sure you're using `.babelrc` instead of `.babelrc.json`",
+      "created_at": "2020-02-11T21:51:21Z"
+    },
+    {
+      "role": "user",
+      "author": "TimothyDalbey",
+      "body": "I've followed the advice here about adding a `.babelrc` etc but the issue still occurs every time I refresh the page.",
+      "created_at": "2020-02-11T23:19:36Z"
+    },
+    {
+      "role": "user",
+      "author": "jordykoppen",
+      "body": "@TimothyDalbey Do you have a repo that reproduces your problem?",
+      "created_at": "2020-02-11T23:21:20Z"
+    },
+    {
+      "role": "user",
+      "author": "TimothyDalbey",
+      "body": "@jordykoppen Pretty new with Next.js -  but FWIW:\r\n\r\n`.babelrc`:\r\n```\r\n{\r\n  \"presets\": [\"next/babel\"],\r\n  \"plugins\": [\r\n    [\r\n      \"styled-components\",\r\n      { \"ssr\": true, \"displayName\": true, \"preprocess\": false }\r\n    ]\r\n  ]\r\n}\r\n```\r\n\r\n\r\n`pages/index.js`:\r\n\r\n```import React from 'react';\r\nimport { createMuiTheme, ThemeProvider } from '@material-ui/core/styles';\r\nimport { makeStyles } from '@material-ui/core/styles';\r\nimport Grid from '@material-ui/core/Grid';\r\nimport { Box } from '@material-ui/core'\r\nimport Typography from '@material-ui/core/Typography';\r\n\r\nconst theme = createMuiTheme({\r\n  typography: {\r\n    fontSize: 12,\r\n    h1: {\r\n      textTransform: 'uppercase',\r\n      fontWeight: 'bold',\r\n      textOverflow: \"clip\",\r\n      letterSpacing: \"1em\",\r\n      textShadow: \"-8px 0 2px rgba(30,242,241, 0.8) , 8px 0 2px rgba(246,5,10, 0.8)\"\r\n    }\r\n  },\r\n});\r\n\r\nconst useStyles = makeStyles(theme => ({\r\n  root: {\r\n    flexGrow: 1,\r\n  },\r\n  control: {\r\n    padding: theme.spacing(2),\r\n  }\r\n}));\r\n\r\nexport default function Index() {\r\n  const classes = useStyles();\r\n  return (\r\n    <ThemeProvider theme={theme}>\r\n      <Grid container className={classes.root} spacing={2}>\r\n        <Grid item xs={12}>\r\n          <Grid\r\n            container\r\n            spacing={0}\r\n            direction=\"column\"\r\n            alignItems=\"center\"\r\n            justify=\"center\"\r\n            style={{ minHeight: '100vh' }} spacing={2}\r\n          >\r\n            <Grid item style={{ margin: 'auto'}}>\r\n              <Box alignItems=\"center\">\r\n                <Typography variant=\"h1\" component=\"h1\">Howdy</Typography>\r\n              </Box>\r\n            </Grid>\r\n          </Grid>\r\n        </Grid>\r\n      </Grid>\r\n    </ThemeProvider>\r\n  );\r\n}\r\n```\r\n",
+      "created_at": "2020-02-11T23:26:35Z"
+    },
+    {
+      "role": "user",
+      "author": "jordykoppen",
+      "body": "@TimothyDalbey what about `_document.js`",
+      "created_at": "2020-02-11T23:50:49Z"
+    },
+    {
+      "role": "user",
+      "author": "TimothyDalbey",
+      "body": "> @TimothyDalbey what about `_document.js`\r\n\r\nI don't have one.  Is that the issue?",
+      "created_at": "2020-02-11T23:56:00Z"
+    },
+    {
+      "role": "user",
+      "author": "jordykoppen",
+      "body": "@TimothyDalbey That's the issue 😄 \r\nHave a look [HERE](https://github.com/mui-org/material-ui/blob/master/examples/nextjs/pages/_document.js) for reference",
+      "created_at": "2020-02-12T00:00:51Z"
+    },
+    {
+      "role": "user",
+      "author": "nooblyf",
+      "body": "@megmut Thanks it worked I was pulling my hair off.",
+      "created_at": "2020-02-21T13:51:48Z"
+    },
+    {
+      "role": "user",
+      "author": "5ervant",
+      "body": "> So I managed to fix this in my situation.. I'm just running React 16.12.0, Next 9.2.1 and Material 4.9.1. Much like everyone else here I found that it was fine on the initial save, however when reloading in browser it was throwing an error where the class names were different. I found a fix for now.\r\n> \r\n> ```\r\n> $ npm install --save-dev babel-plugin-styled-components\r\n> $ touch .babelrc\r\n> ```\r\n> \r\n> Paste the following into your .babelrc file -\r\n> \r\n> ```\r\n> {\r\n>     \"plugins\": [\r\n>       [\"styled-components\", { \"ssr\": true, \"displayName\": true, \"preprocess\": false } ],\r\n>     ],\r\n>     \"presets\": [\"next/babel\"]\r\n> }\r\n> ```\r\n> \r\n> Just re-run your dev env and the problem went away. Apologies if I've done something stupid here, I'm still relatively new to next.js & react!\r\n\r\nBut installing `babel-plugin-styled-components` on a `next-expo` app with `@expo/next-adapter` takes forever.",
+      "created_at": "2020-02-28T16:36:04Z"
+    },
+    {
+      "role": "user",
+      "author": "Hubro",
+      "body": "This is driving me INSANE.\r\n\r\nAny time I reload my window, or the content of my screen is temporarily replaced with (i.e.) an error message, all my styles go out the window and my app looks like garbage, and I have to restart the development server.\r\n\r\nThe error message in the console is always some variation of this:\r\n\r\n> index.js:1 Warning: Prop `className` did not match. Server: \"MuiPaper-root MuiDrawer-paper makeStyles-drawerPaper-75 makeStyles-drawerPaper-291 MuiDrawer-paperAnchorLeft MuiDrawer-paperAnchorDockedLeft MuiPaper-elevation0\" Client: \"MuiPaper-root MuiDrawer-paper makeStyles-drawerPaper-75 makeStyles-drawerPaper-76 MuiDrawer-paperAnchorLeft MuiDrawer-paperAnchorDockedLeft MuiPaper-elevation0\"\r\n\r\nI'm using Next.js with Relay and MUI.\r\n\r\nHere are all my dependencies if it helps:\r\n\r\n```\r\n  \"devDependencies\": {\r\n    \"@babel/core\": \"^7.8.6\",\r\n    \"@storybook/addon-actions\": \"^5.3.14\",\r\n    \"@storybook/addon-links\": \"^5.3.14\",\r\n    \"@storybook/addons\": \"^5.3.14\",\r\n    \"@storybook/react\": \"^5.3.14\",\r\n    \"@types/markdown-to-jsx\": \"^6.11.0\",\r\n    \"@types/node\": \"^13.7.7\",\r\n    \"@types/react\": \"^16.9.23\",\r\n    \"@types/react-datepicker\": \"^2.11.0\",\r\n    \"@types/react-relay\": \"^7.0.3\",\r\n    \"@types/relay-runtime\": \"^8.0.7\",\r\n    \"babel-loader\": \"^8.0.6\",\r\n    \"babel-plugin-react-require\": \"^3.1.3\",\r\n    \"babel-plugin-relay\": \"^9.0.0\",\r\n    \"babel-preset-react-app\": \"^9.1.1\",\r\n    \"get-graphql-schema\": \"^2.1.2\",\r\n    \"graphql\": \"^14.6.0\",\r\n    \"relay-compiler\": \"^9.0.0\",\r\n    \"relay-compiler-language-typescript\": \"^12.0.0\",\r\n    \"relay-config\": \"^9.0.0\",\r\n    \"typescript\": \"^3.8.3\"\r\n  },\r\n  \"dependencies\": {\r\n    \"@date-io/date-fns\": \"^1\",\r\n    \"@material-ui/core\": \"^4.9.1\",\r\n    \"@material-ui/icons\": \"^4.9.1\",\r\n    \"@material-ui/pickers\": \"^3.2.10\",\r\n    \"isomorphic-unfetch\": \"^3.0.0\",\r\n    \"markdown-to-jsx\": \"^6.11.0\",\r\n    \"next\": \"^9.2.1\",\r\n    \"react\": \"^16.12.0\",\r\n    \"react-datepicker\": \"^2.13.0\",\r\n    \"react-dom\": \"^16.12.0\",\r\n    \"react-relay\": \"^9.0.0\",\r\n    \"relay-runtime\": \"^9.0.0\"\r\n  }\r\n```\r\n\r\nAs well as my `next.config.js`:\r\n\r\n```javascript\r\nconst path = require(\"path\");\r\n\r\nmodule.exports = {\r\n  pageExtensions: [\"tsx\"],\r\n\r\n  webpack: config => {\r\n    config.resolve.alias['~'] = path.resolve(__dirname) + \"/src\";\r\n    return config;\r\n  },\r\n};\r\n```\r\n\r\nAnd my `.babelrc`:\r\n\r\n```javascript\r\n{\r\n    \"presets\": [\r\n        \"next/babel\"\r\n    ],\r\n    \"plugins\": [\r\n        \"relay\"\r\n    ]\r\n}\r\n```",
+      "created_at": "2020-03-21T18:40:51Z"
+    },
+    {
+      "role": "user",
+      "author": "jordykoppen",
+      "body": "@Hubro you need to install `babel-plugin-styled-components` and add it to your `.babelrc.json`. Also, don’t forget to add the .json extension to the babelrc as it otherwise won’t load.",
+      "created_at": "2020-03-22T10:19:31Z"
+    },
+    {
+      "role": "user",
+      "author": "Hubro",
+      "body": "@jordykoppen This doesn't work for me. I have added the plugin just as described by @5ervant and restarted my dev server, and it has no effect:\r\n\r\n**.babelrc:**\r\n```json\r\n{\r\n    \"presets\": [\r\n        \"next/babel\"\r\n    ],\r\n    \"plugins\": [\r\n        \"relay\",\r\n        [\r\n          \"styled-components\",\r\n          {\r\n            \"ssr\": true,\r\n            \"displayName\": true,\r\n            \"preprocess\": false\r\n          }\r\n        ]\r\n    ]\r\n}\r\n```\r\n\r\nI don't understand what you mean by having to rename .babelrc to .babelrc.json. The Next.js docs don't mention a .json extension, and obviously my .babelrc is already working since I'm using it to include Relay. In fact, if I add the .json Next.js no longer detects it and my setup breaks.",
+      "created_at": "2020-03-25T01:58:24Z"
+    },
+    {
+      "role": "user",
+      "author": "5ervant",
+      "body": "@Hubro Is your Material-UI's styling layout on your *\"./pages/_app.js\"*?\r\nIt becomes better when I wrap all my *\"./pages/\\*.js\"* with my Material-UI's styling layout.\r\nSometimes the styles are there, something they're not.\r\n\r\nWhenever I tried to use my wrapper on my *\"./pages/_document.js\"*, I'm getting `Internal Server Error`.\r\nLet me know if you succeed using a wrapper on *\"./pages/_document.js\"*.\r\n\r\nMy suspecting reason for this is because Material-UI's styling is being rendered on the client dynamically and the *\"./pages/_app.js\"* was specifically build for server-side rendering *(SSR)*.",
+      "created_at": "2020-03-25T09:08:28Z"
+    },
+    {
+      "role": "user",
+      "author": "Hubro",
+      "body": "@5ervant What do you mean by styling layout?\r\n\r\nI did have my `ThemeProvider` and `MuiPickersUtilsProvider` in my _app.js page. I concur that Material UI has something to do with this, because I never had this issue in my application before I added it.\r\n\r\nI have now removed everything Material UI related from _app.js so it looks plain like this:\r\n\r\n```typescript\r\nfunction MyApp({ Component, pageProps }: AppProps) {\r\n  return (\r\n    <>\r\n      <Component {...pageProps} />\r\n    </>\r\n  );\r\n}\r\n\r\nexport default MyApp;\r\n```\r\n\r\nI am now adding my theme and utils directly on my page component. I also have the styled-components plugin active as you recommended.\r\n\r\nNone of this has made any difference, and my styles all still break when I reload the window.",
+      "created_at": "2020-03-25T12:48:13Z"
+    },
+    {
+      "role": "user",
+      "author": "valmassoi",
+      "body": "this is what fixed it for me https://github.com/mui-org/material-ui/blob/master/examples/nextjs/pages/_document.js#L27",
+      "created_at": "2020-03-25T16:13:34Z"
+    },
+    {
+      "role": "user",
+      "author": "jeanbispo",
+      "body": "> So I managed to fix this in my situation.. I'm just running React 16.12.0, Next 9.2.1 and Material 4.9.1. Much like everyone else here I found that it was fine on the initial save, however when reloading in browser it was throwing an error where the class names were different. I found a fix for now.\r\n> \r\n> ```\r\n> $ npm install --save-dev babel-plugin-styled-components\r\n> $ touch .babelrc\r\n> ```\r\n> \r\n> Paste the following into your .babelrc file -\r\n> \r\n> ```\r\n> {\r\n>     \"plugins\": [\r\n>       [\"styled-components\", { \"ssr\": true, \"displayName\": true, \"preprocess\": false } ],\r\n>     ],\r\n>     \"presets\": [\"next/babel\"]\r\n> }\r\n> ```\r\n> \r\n> Just re-run your dev env and the problem went away. Apologies if I've done something stupid here, I'm still relatively new to next.js & react!\r\n\r\nThanks man, it works for me.",
+      "created_at": "2020-04-05T04:20:19Z"
+    },
+    {
+      "role": "user",
+      "author": "mrusmanali",
+      "body": "guys, I think it's because you have _document file in your pages folder and material-ui needs this\r\n\r\nimport { ServerStyleSheets } from '@material-ui/core/styles';\r\n\r\njust follow @valmassoi guideline.\r\n",
+      "created_at": "2020-04-08T18:57:38Z"
+    },
+    {
+      "role": "user",
+      "author": "Shaker-Hamdi",
+      "body": "@valmassoi Do you know what should I do if I don't use Material UI and I'm still having this issue?",
+      "created_at": "2020-04-08T21:29:17Z"
+    },
+    {
+      "role": "user",
+      "author": "valmassoi",
+      "body": "> @valmassoi Do you know what should I do if I don't use Material UI and I'm still having this issue?\n\nnot sure sorry",
+      "created_at": "2020-04-08T21:34:33Z"
+    },
+    {
+      "role": "user",
+      "author": "adonig",
+      "body": "I was able to solve my case of this problem after two hours of searching by removing a conditional render:\r\n\r\n```\r\nconst isSSR = typeof window === \"undefined\";\r\n\r\n{!isSSR && <GdprDialog />}\r\n\r\n<Footer /> {/* The error happens inside this component. */}\r\n```\r\n\r\nIt seems like Material UI's makeStyles function increments a number it appends to the class names to keep them unique. So during server-side rendering the class name used in the Footer component differs from the class name used during client-side rendering because makeStyles increments the number when rendering the GdprDialog component.",
+      "created_at": "2020-04-13T16:07:55Z"
+    },
+    {
+      "role": "user",
+      "author": "joaocjesus",
+      "body": "@valmassoi answer fixed it for me.\r\nI didn't have a `_document.js`, so I just added the one he linked (with some small tweaks) and that fixed the issue for me. No longer shows the console error. 👍 ",
+      "created_at": "2020-04-25T12:40:36Z"
+    },
+    {
+      "role": "user",
+      "author": "github0013",
+      "body": "My situation was something like this.\r\n\r\n1. It is a dynamic component\r\n2. When user is NOT logged in, display gray color avatar\r\n3. when user is logged in, display avatar in a color\r\n4. I control the color by adding a className \"logged-in\"\r\n\r\nhttps://github.com/zeit/next.js/issues/7322#issuecomment-612965316\r\nMaybe for this reason, the displayed avatar was in gray color even the user was logged in on a page refresh/reload. (while editing in dev mode, hot reload kinda picks up and was showing colored avatar, but it was still buggy)\r\n\r\nI then did something like this\r\n\r\n```tsx\r\n\r\n  const [loggedIn, setLoggedIn] = React.useState(false)\r\n  React.useEffect(() => {\r\n    setLoggedIn(check_if_user_is_signed_in())\r\n  }, [check_if_user_is_signed_in()])\r\n\r\n  if (loggedIn) {\r\n    return (\r\n      <Link href=\"/users\">\r\n        <IconButton>\r\n          <Avatar className=\"user logged-in\" />\r\n        </IconButton>\r\n      </Link>\r\n    )\r\n  }\r\n\r\n  return (\r\n    <Link href=\"/login\">\r\n      <IconButton>\r\n        <Avatar className=\"user\" />\r\n      </IconButton>\r\n    </Link>\r\n  )\r\n\r\n```\r\n\r\nand it seems to work fine.",
+      "created_at": "2020-04-29T01:00:01Z"
+    },
+    {
+      "role": "user",
+      "author": "cdaz5",
+      "body": "@Shaker-Hamdi i'm not using material UI and still had the issue .. following this advice earlier in the thread fixed it for me .. hope it helps!  https://github.com/zeit/next.js/issues/7322#issuecomment-592593330",
+      "created_at": "2020-05-02T16:31:48Z"
+    },
+    {
+      "role": "user",
+      "author": "github0013",
+      "body": "https://nextjs.org/docs/advanced-features/dynamic-import\r\nwas another way to avoid this warning.\r\n\r\nhttps://github.com/zeit/next.js/discussions/12338#discussioncomment-8285",
+      "created_at": "2020-05-03T02:11:08Z"
+    },
+    {
+      "role": "user",
+      "author": "gauravkrp",
+      "body": "I am having the similar issue when using https://react-slick.neostack.com/ slider component in my nextjs project.\r\nPlease reopen this issue.",
+      "created_at": "2020-05-04T13:47:15Z"
+    },
+    {
+      "role": "user",
+      "author": "gauravkrp",
+      "body": "> https://nextjs.org/docs/advanced-features/dynamic-import\r\n> was another way to avoid this warning.\r\n> \r\n> [#12338 (comment)](https://github.com/zeit/next.js/discussions/12338#discussioncomment-8285)\r\n\r\nYes, I just discovered this method and it works in my case as my components has data to load on client side. option SSR needs to be false so that component is loaded on the client side dynamically and is not SSR. \r\nIn my case, the slider components has classes that are initialized and added to elements on client side after the document window is ready. So, the solution will work in all similar cases where the classes are initialized and added on the client side. See my code below.\r\n\r\n`\r\nconst AGSlider = dynamic(\r\n  () => import('../components/slider'),\r\n  { ssr: false, loading: () => <Loader /> }\r\n)\r\n`",
+      "created_at": "2020-05-04T14:18:12Z"
+    },
+    {
+      "role": "user",
+      "author": "ardaerzin",
+      "body": "I too am having this issue in my workspace. before anything else I should mention that I have the custom _document.js (even tried the new experimental plugin approach without the custom document), and the .babelrc ready.\r\n\r\neverything works just fine in a single project, but I want to switch to **yarn workspaces** because I am managing a few projects which share a common set of UI components. under the workspace, I keep getting this error. interestingly if I publish those packages as a private repo and use them that way, I don't get this error. yes I also am using `next-transpile-modules`\r\n\r\nI am not using material-ui, but I use `grommet` & `styled-components`. Grommet components I use in my modules don't trigger this error, but when I use `styled(Component)` I start seeing errors.\r\n\r\nidk it's been really bugging me since yesterday. any help or suggestion is appreciated ",
+      "created_at": "2020-05-04T23:35:20Z"
+    },
+    {
+      "role": "user",
+      "author": "github0013",
+      "body": "@ardaerzin \r\n\r\nhttps://github.com/zeit/next.js/discussions/12338#discussioncomment-8285\r\ncheck this one out.\r\n\r\nI think this problem is more like because of SSR feature in nextjs rather than any kinds of external libraries.  Described in the bare-minimum example I have in the above link, it still shows the same warning. (check the package.json, and also I am not using _app or _document)\r\n\r\nOne solution for this is that you use \r\n\r\nhttps://nextjs.org/docs/advanced-features/dynamic-import\r\n\r\non the component which dynamically changes contents depending on the client.",
+      "created_at": "2020-05-05T00:47:14Z"
+    },
+    {
+      "role": "user",
+      "author": "ardaerzin",
+      "body": "@github0013 thanks! will take a look.\r\n\r\nthe weird part is that when I start dev server with `now dev` it runs without any errors on the first load. as soon as I update one component and trigger a refresh, the error comes back.\r\n\r\nso far my workspace structure looks like this:\r\n\r\n```\r\nworkspace\r\n│\r\n└─── ui\r\n│   │   Button\r\n│   │   Footer\r\n│   │   Header\r\n│   \r\n└───project\r\n│   └───pages\r\n│       │   _app.js\r\n```\r\n\r\nI am using an _app.js to manage my shared layout. there I am using header & footer. another fun thing is, both of those components are using other components from the UI module.  the header alone is not causing any problems, but the same button component in my footer is causing this issue. footer has no dynamically changing content which may be different on the client.\r\n\r\nok, I know this is not a breaking issue because if I npm publish my modules everything is normal. but for a better dev environment, it'd be super cool to somehow tackle this. I may avoid the error using dynamic imports but I don't know if it is the best solution every time I run into this exact problem.",
+      "created_at": "2020-05-05T02:32:36Z"
+    },
+    {
+      "role": "user",
+      "author": "github0013",
+      "body": "@ardaerzin \r\n\r\nWhat does the warning / error say exactly?\r\nAnd it's maybe wise to create a bare-minimum project and test the components.\r\n\r\n```bash\r\nmkdir bare-min\r\ncd bare-min\r\nyarn add next react react-dom\r\nmkdir pages\r\ntouch pages/index.js\r\ncode pages/index.js\r\nyarn dev\r\n```",
+      "created_at": "2020-05-05T03:36:12Z"
+    },
+    {
+      "role": "user",
+      "author": "ardaerzin",
+      "body": "@github0013 should've said warning my bad, spending a day after this got me tired. it says\r\n\r\n```\r\nindex.js:1 Warning: Prop `className` did not match. Server: \"StyledButton-sc-323bzc-0 fbhfmY sc-fzozJi hXjicF\" Client: \"StyledButton-sc-323bzc-0 fbhfmY sc-AxirZ iGicTr\"\r\n```\r\n\r\nso I know it is coming from the button component in my UI package. the first 2 classes which are identical are coming from grommet. the last two are added when I use `styled-components` to add my style rules.\r\n\r\nsince this is only happening inside a yarn workspace, I created a bare minimum workspace in which this issue reproduced. just used the one in nextjs examples folder and added very basic components to test. https://github.com/ardaerzin/mono-test/commit/f994f4bdfecf7dc945c1ba70a0c849d97e8f539d\r\n\r\nthe situation is the same here, no warnings when I run `yarn dev` the first time, but the warning appears after a refresh and stays there for good.",
+      "created_at": "2020-05-05T16:04:20Z"
+    },
+    {
+      "role": "user",
+      "author": "diegomjasso",
+      "body": "The solution is here: https://stackoverflow.com/a/61621949/7741752",
+      "created_at": "2020-05-05T20:06:34Z"
+    },
+    {
+      "role": "user",
+      "author": "ardaerzin",
+      "body": "@diegomjasso thanks a lot for the suggestion. however, I just tried your approach but it is not working on that test repo I shared above :/",
+      "created_at": "2020-05-05T20:26:54Z"
+    },
+    {
+      "role": "user",
+      "author": "github0013",
+      "body": "@ardaerzin \r\n\r\nhttps://github.com/github0013/nextjs-grommet/tree/master\r\n\r\nI tried grommet on my own. (never used grommet before).   I see no more warnings after this setup.   As far as I checked ...\r\n\r\n1. yes, I saw Warning: Prop `className` did not match, before adding .babelrc + _document.tsx\r\n1. once the button got styled text label (red color), it seemed browser was caching it hard?  I experienced the browser didn't show the warning even after \r\n   - hard refresh\r\n   - rm -fr .next\r\n   - moving _document out of pages \r\n   - moving .babelrc out of the directory\r\n   - rebooting docker\r\n1. sometimes the styled text label was in black color (although it meant to be in red), and I saw no warnings.\r\n\r\nThere were some inconsistencies like that, but I am pretty much sure in your case, it's coming from styled-components.\r\n",
+      "created_at": "2020-05-06T00:21:37Z"
+    },
+    {
+      "role": "user",
+      "author": "adventurini",
+      "body": "> I am having the similar issue when using https://react-slick.neostack.com/ slider component in my nextjs project.\r\n> Please reopen this issue.\r\n\r\nHaving the issue with Chakra.",
+      "created_at": "2020-05-07T16:22:14Z"
+    },
+    {
+      "role": "user",
+      "author": "arbaouimehdi",
+      "body": "> > I am having the similar issue when using https://react-slick.neostack.com/ slider component in my nextjs project.\r\n> > Please reopen this issue.\r\n> \r\n> Having the issue with Chakra.\r\n\r\nThis what I follow to solve this problem:\r\n\r\nhttps://github.com/zeit/next.js/issues/7423#issuecomment-592594730",
+      "created_at": "2020-05-09T21:04:03Z"
+    },
+    {
+      "role": "user",
+      "author": "FBosler",
+      "body": "There are multiple solutions being referenced throughout the thread, is there a \"best-practice\" solution, or a reliable SO thread that explains what's going on here?",
+      "created_at": "2020-05-14T07:11:51Z"
+    },
+    {
+      "role": "user",
+      "author": "xsimjo",
+      "body": "> > I am having the similar issue when using https://react-slick.neostack.com/ slider component in my nextjs project.\r\n> > Please reopen this issue.\r\n> \r\n> Having the issue with Chakra.\r\n\r\nDid you find a solution?",
+      "created_at": "2020-05-19T22:09:59Z"
+    },
+    {
+      "role": "user",
+      "author": "gauravkrp",
+      "body": "> > I am having the similar issue when using https://react-slick.neostack.com/ slider component in my nextjs project.\r\n> > Please reopen this issue.\r\n> \r\n> Having the issue with Chakra.\r\n\r\nHere is one viable solution -  https://github.com/zeit/next.js/issues/7322#issuecomment-623491977",
+      "created_at": "2020-05-20T16:34:33Z"
+    },
+    {
+      "role": "user",
+      "author": "brianpunzalan",
+      "body": "I have upraded my next.js version to 9 and got this problem. However, I have fixed it by using `useStyles` instead of `withStyles` on my component that having this issue. I have been encountering this problem on Material UI.",
+      "created_at": "2020-05-26T07:57:34Z"
+    },
+    {
+      "role": "user",
+      "author": "bengrunfeld",
+      "body": "FYI - also encountering this problem with Prism.js\r\n\r\n",
+      "created_at": "2020-05-28T17:03:21Z"
+    },
+    {
+      "role": "user",
+      "author": "iaremarkus",
+      "body": "Brand new Next project using `create-next-app`, and StyledComponents 5.1.1 and having the same error a few lines of code in.\r\n\r\nHow is this closed? `:sadpanda:`",
+      "created_at": "2020-05-29T08:23:01Z"
+    },
+    {
+      "role": "user",
+      "author": "JorgeSivil",
+      "body": "There's a way to overcome this:\r\n\r\nuseState for the class name, and useEffect to change it.\r\n\r\nThe only con is that you'll not have the class applied in the HTML returned from the server\r\n\r\n```\r\nconst Header = ({ brandName, className }) => {\r\n...\r\n  const [styledClassName, setStyledClassName] = useState(\r\n    classNames({\r\n      [styles.main]: true,\r\n      [brandStyles.header]: brandId !== 1,\r\n      [brandStyles[brandName]]: brandId !== 1,\r\n    }),\r\n  );\r\n ...\r\n   useEffect(() => {\r\n    setStyledClassName(\r\n      classNames({\r\n        [styles.main]: true,\r\n        [className]: true,\r\n        [brandStyles.header]: brandId !== 1,\r\n        [brandStyles[brandName]]: brandId !== 1,\r\n      }),\r\n    );\r\n  }, []);\r\n ...\r\n return (\r\n    <header\r\n      className={styledClassName}\r\n  ...\r\n  )\r\n\r\n...\r\n const styledHeader = styled(Header)`\r\n  background-image: url('/static/img/brand/${(props) => props.brandName}/header/mobile/background.jpg');\r\n  @media (min-width: 1240px) {\r\n    background-image: url('/static/img/brand/${(props) => props.brandName}/header/background.jpg');\r\n  }\r\n`;\r\n```",
+      "created_at": "2020-05-30T01:53:12Z"
+    },
+    {
+      "role": "user",
+      "author": "hypo-thesis",
+      "body": "It has been 2 years since this issue has been raised and still this exists. Nextjs shows very little attention to users concerns which makes this library unreliable. I am already looking into alternatives. ",
+      "created_at": "2020-05-30T20:42:55Z"
+    },
+    {
+      "role": "user",
+      "author": "adventurini",
+      "body": "> It has been 2 years since this issue has been raised and still this exists. Nextjs shows very little attention to users concerns which makes this library unreliable. I am already looking into alternatives.\r\n\r\n\r\nWhat is this Walmart?? This is a whiny sentiment that provides absolutely no benefit to anyone. If you want to help, then contribute. When you comment on an issue thread, it pings everyone your toxic attitude. I only hope you find another framework so I don't have to read another one of your naggy comments.\r\n\r\n\r\n",
+      "created_at": "2020-05-30T21:03:29Z"
+    },
+    {
+      "role": "user",
+      "author": "torayeff",
+      "body": "We still have the same issue. In my case, the client and server return different classes (different id probably) and the appearance breaks. I just restart the server and the warning goes away.",
+      "created_at": "2020-05-31T09:45:58Z"
+    },
+    {
+      "role": "user",
+      "author": "timneutkens",
+      "body": "If you're running into this and using a CSS-in-JS library like styled-components / emotion / Material UI make sure you configure it correctly. Here's the examples:\r\n- https://github.com/vercel/next.js/tree/canary/examples/with-styled-components\r\n- https://github.com/vercel/next.js/tree/canary/examples/with-emotion\r\n- https://github.com/mui-org/material-ui/tree/master/examples/nextjs\r\n\r\n---\r\n\r\n> It has been 2 years since this issue has been raised and still this exists. Nextjs shows very little attention to users concerns which makes this library unreliable. I am already looking into alternatives.\r\n\r\nLet's break down the things you're claiming:\r\n\r\n> It has been 2 years since this issue has been raised and still this exists.\r\n\r\nThe warning you're seeing is a React hydration warning. The warning shows when the pre-rendered (SSR or SSG) response differs from the client-side React tree. In this case the className generated during pre-rendering is different from the one client-side. Generally this is caused by not configuring the CSS-in-JS library for pre-rendering, e.g. in case of styled-components you have to add this bit: https://github.com/vercel/next.js/blob/canary/examples/with-styled-components/pages/_document.js#L5-L29 which allows for tracking what styled-components were rendered and publishing those into a `<style>` tag server-side.\r\n\r\n> Nextjs shows very little attention to users concerns which makes this library unreliable\r\n\r\n- Next.js is being maintained by 5 people full-time and many external collaborators/contributors. It's currently almost 3.5 years old and has been continuously maintained.\r\n- Questions are being asked and answered almost non-stop every day on https://github.com/vercel/next.js/discussions by both community members and the core team.\r\nFurthermore we continuously talk to users.\r\n- New releases are being pushed out every few days on a nightly build (canary): https://github.com/vercel/next.js/releases\r\n- We have an extensive test suite that covers all features and all new features / fixes are accompanied by integration tests. Note that these tests run against the full Next.js CLI and don't mock anything. https://github.com/vercel/next.js/tree/canary/test/integration\r\n- Next.js is being used by over 72K sites on the internet [source](https://trends.builtwith.com/framework/Next.js) and there's even more usage internally at companies. This includes the world's largest known web properties like qq.com (4th largest website of the world according to [Alexa](https://www.alexa.com/topsites) (bigger than Facebook)), TikTok, Twitch, and Hulu. All driving their main web experience.\r\n- We're working with the Google Chrome team and Facebook's React team on Next.js and tackling a lot of hard problems related to performance (e.g. [Granular Chunking](https://nextjs.org/blog/next-9-2#improved-code-splitting-strategy)), development experience (e.g. [Fast Refresh](https://nextjs.org/blog/next-9-4#fast-refresh)). More info: https://youtu.be/UD98x-2mido?t=1643\r\n- The reception of every 9.x release (9.0, 9.1, 9.2, 9.3, 9.4) has been overwhelmingly positive and the continuous feedback we've had has been that with every release users can remove more of their custom code in favor of built-in reliable solutions.\r\n",
+      "created_at": "2020-05-31T11:54:25Z"
+    },
+    {
+      "role": "user",
+      "author": "timneutkens",
+      "body": "> What is this Walmart?? This is a whiny sentiment that provides absolutely no benefit to anyone. If you want to help, then contribute. When you comment on an issue thread, it pings everyone your toxic attitude. I only hope you find another framework so I don't have to read another one of your naggy comments.\r\n\r\nI appreciate the defending and understand why you're annoyed by the comment as it doesn't add anything to this thread. Let's remember to be welcoming even when someone shares their opinion and that opinion is unrelated to the thread. The best thing we can do is give them all the information ([see post above](https://github.com/vercel/next.js/issues/7322#issuecomment-636460915) and hope it changes their mind. Also pointing to create a discussion would be a good one: https://github.com/vercel/next.js/discussions\r\n\r\n> If you want to help, then contribute\r\n\r\nSpecifically to this, people don't have to contribute. The best thing people can do is create a full reproduction (e.g. a GitHub repository) of their specific issue. This GitHub issue as-is is not a single issue, it's probably more like 10+ different issues given that you're all using different libraries (styled-components, emotion, material ui, etc) and they all work differently when pre-rendered and need additional configuration.\r\n\r\nI've already posted that in the thread before:\r\nhttps://github.com/vercel/next.js/issues/7322#issuecomment-496219766\r\nhttps://twitter.com/timneutkens/status/1154351052973625346\r\n",
+      "created_at": "2020-05-31T12:12:56Z"
+    },
+    {
+      "role": "user",
+      "author": "songyule",
+      "body": "> It has been 2 years since this issue has been raised and still this exists. Nextjs shows very little attention to users concerns which makes this library unreliable. I am already looking into alternatives.\r\n\r\nyou can look the issues [fixed my problem](https://github.com/styled-components/babel-plugin-styled-components/issues/78) ",
+      "created_at": "2020-06-04T07:02:47Z"
+    },
+    {
+      "role": "user",
+      "author": "d3vzr",
+      "body": "Had a similar error\r\nJust solved it by changing `class` to `className`  \r\nI forgot and used class instead of className",
+      "created_at": "2020-06-05T11:04:08Z"
+    },
+    {
+      "role": "user",
+      "author": "bel7aG",
+      "body": "Fixed on **@1.11.0-0**\r\n`\"babel-plugin-styled-components\": \"^1.11.0-0\",`\r\n\r\n**in .babelrc:**\r\n`{\r\n  \"env\": {\r\n    \"development\": {\r\n      \"plugins\": [[\"styled-components\", { \"ssr\": true, \"displayName\": true, \"preprocess\": false }]],\r\n      \"presets\": [\"next/babel\"]\r\n    },\r\n    \"production\": {\r\n      \"plugins\": [[\"styled-components\", { \"ssr\": true, \"displayName\": true, \"preprocess\": false }]],\r\n      \"presets\": [\"next/babel\"]\r\n    }\r\n  },\r\n  \"plugins\": [[\"styled-components\", { \"ssr\": true, \"displayName\": true, \"preprocess\": false }]]\r\n}\r\n`\r\n",
+      "created_at": "2020-06-10T11:07:24Z"
+    },
+    {
+      "role": "user",
+      "author": "maktouch",
+      "body": "Updating `\"babel-plugin-styled-components\": \"^1.11.0-0\"` worked for me. Thanks! ",
+      "created_at": "2020-06-11T08:59:07Z"
+    },
+    {
+      "role": "user",
+      "author": "Pascal-Lohscheidt",
+      "body": "For me, I just had to update styled-components and the problem was solved",
+      "created_at": "2020-06-12T09:43:17Z"
+    },
+    {
+      "role": "user",
+      "author": "nazmifeeroz",
+      "body": "hey all,\r\n\r\ndoing this will work:\r\n\r\nInstall babel plugin:\r\n`yarn add --dev babel-plugin-styled-components`\r\n\r\ncreate new file `.babelrc` in your root project folder and add this:\r\n```\r\n{\r\n    \"env\": {\r\n      \"development\": {\r\n        \"plugins\": [\r\n          [\r\n            \"babel-plugin-styled-components\",\r\n            { \"ssr\": true, \"displayName\": true, \"preprocess\": false }\r\n          ]\r\n        ],\r\n        \"presets\": [\"next/babel\"]\r\n      },\r\n      \"production\": {\r\n        \"plugins\": [\r\n          [\r\n            \"babel-plugin-styled-components\",\r\n            { \"ssr\": true, \"displayName\": true, \"preprocess\": false }\r\n          ]\r\n        ],\r\n        \"presets\": [\"next/babel\"]\r\n      }\r\n    },\r\n    \"plugins\": [\r\n      [\r\n        \"babel-plugin-styled-components\",\r\n        { \"ssr\": true, \"displayName\": true, \"preprocess\": false }\r\n      ]\r\n    ]\r\n}\r\n```",
+      "created_at": "2020-06-14T03:00:20Z"
+    },
+    {
+      "role": "user",
+      "author": "giovannabadaro",
+      "body": "Updating \"babel-plugin-styled-components\": \"^1.11.0-0\" worked for me",
+      "created_at": "2020-06-22T23:29:10Z"
+    },
+    {
+      "role": "user",
+      "author": "yayxs",
+      "body": "\r\n-------------\r\nI have the same problem\r\n---\r\nWarning: Prop `className` did not match. Server: \"MuiBox-root MuiBox-root-10\" Client: \"MuiBox-root MuiBox-root-6\"",
+      "created_at": "2020-06-23T15:19:03Z"
+    },
+    {
+      "role": "user",
+      "author": "marcusfrdk",
+      "body": "I had the same problem, thinking it could be something with the framework. However, playing with my code I discovered that the problem occurred once I imported components which were the \"main\" of the local package.json of that respective folder (i.e /src/components/component/package.json). I removed this and restarted the server. This solved the problem for me, both in development and production and has not appeared since.",
+      "created_at": "2020-06-24T19:05:46Z"
+    },
+    {
+      "role": "user",
+      "author": "pie6k",
+      "body": "@giovannabadaro not sure, but 1.11.0-0 actually is older than 1.10 :O \r\n\r\n![image](https://user-images.githubusercontent.com/7311462/85845554-b9ec1d80-b7a4-11ea-985b-0cbd69695132.png)\r\n",
+      "created_at": "2020-06-26T10:01:22Z"
+    },
+    {
+      "role": "user",
+      "author": "zer0blockchain",
+      "body": "This fixed it for me\r\nhttps://github.com/MarchWorks/nextjs-with-material-ui-and-styled-components/blob/master/.babelrc",
+      "created_at": "2020-06-28T15:10:57Z"
+    },
+    {
+      "role": "user",
+      "author": "ocavue",
+      "body": "Hi @timneutkens. \r\n\r\nI still have this issue, so I create a full reproduction repository: https://github.com/ocavue/mui-next-classname-issue.  You can find the reproduction steps in the repo README. \r\n\r\nIt's \"cropped version\" of a real project, with only the code related to this issue. I can provide more detailed information if you guys cannot reproduce the problem.\r\n\r\n\r\n",
+      "created_at": "2020-07-04T20:32:07Z"
+    },
+    {
+      "role": "user",
+      "author": "timneutkens",
+      "body": "> Hi @timneutkens.\r\n> \r\n> I still have this issue, so I create a full reproduction repository: [ocavue/mui-next-classname-issue](https://github.com/ocavue/mui-next-classname-issue). You can find the reproduction steps in the repo README.\r\n> \r\n> It's \"cropped version\" of a real project, with only the code related to this issue. I can provide more detailed information if you guys cannot reproduce the problem.\r\n\r\nYou didn't configure material-ui correctly per their example: https://github.com/mui-org/material-ui/blob/master/examples/nextjs/pages/_document.js#L27-L68\r\n\r\nMissing in your application: https://github.com/ocavue/mui-next-classname-issue/blob/master/src/pages/_document.tsx",
+      "created_at": "2020-07-05T08:41:29Z"
+    },
+    {
+      "role": "user",
+      "author": "ocavue",
+      "body": "> You didn't configure material-ui correctly per their example: https://github.com/mui-org/material-ui/blob/master/examples/nextjs/pages/_document.js#L27-L68\r\n\r\nThis works for me! Thank you so much. \r\n\r\nI did miss this part when I check their example. I just submitted a PR to material-ui to add some troubleshooting in their document and hope this will saves others time in the feature. ",
+      "created_at": "2020-07-05T11:23:40Z"
+    },
+    {
+      "role": "user",
+      "author": "adriangzz",
+      "body": "I'm having this problem with [use-dark-mode](https://github.com/donavon/use-dark-mode#readme) , anybody else?",
+      "created_at": "2020-07-06T16:31:29Z"
+    },
+    {
+      "role": "user",
+      "author": "songyule",
+      "body": "reference： https://github.com/vercel/next.js/tree/canary/examples/with-styled-components\r\nHi @timneutkens.\r\nI configured the file _.babelrc_ and it can work normally. so I have a question, What is the effect of adding  **sheet.getStyleElement()** in __document.jsx_",
+      "created_at": "2020-07-09T15:51:59Z"
+    },
+    {
+      "role": "user",
+      "author": "pie6k",
+      "body": "> I'm having this problem with [use-dark-mode](https://github.com/donavon/use-dark-mode#readme) , anybody else?\r\n\r\nwell, that's reasonable. Server doesn't know if you have dark mode enabled.\r\n\r\nSolution could be to save 'last mode' on server somehow and make this hook using this value on server side",
+      "created_at": "2020-07-10T06:20:39Z"
+    },
+    {
+      "role": "user",
+      "author": "owen26",
+      "body": "This issue has always been a headache to me with all of my next.js projects. I thought I've done all workarounds provided on the internet but the same error pops up occasionally on different places.\r\n\r\nThe tricky thing is it seems not always happening, but when you start thinking you've finally nailed it then it came back again from nowhere...\r\n\r\nMy latest discovery is that under some circumstances, the babel config option of `\"preprocess\": false` is a must for styled-components plugin. Some examples on the internet don't have it. Which is a bit of misleading as I thought it's not necessary.\r\n",
+      "created_at": "2020-07-11T23:37:23Z"
+    },
+    {
+      "role": "user",
+      "author": "rodolphoasb",
+      "body": "I'm having this error but I don't use styled components. I'm using Tailwind CSS. Somebody has any thoughts about how can I solve this?\r\n\r\nBasically what I'm doing is a conditional rendering of the navbar based on the logged status of a user. To se if the user is logged in I'm checking if there is a specific cookie set.",
+      "created_at": "2020-07-12T03:50:16Z"
+    },
+    {
+      "role": "user",
+      "author": "joshuap233",
+      "body": "> FYI - also encountering this problem with Prism.js\r\n\r\nHello, have you found a solution?\r\n\r\n",
+      "created_at": "2020-07-15T06:00:04Z"
+    },
+    {
+      "role": "user",
+      "author": "dimosmera",
+      "body": "This still happens.\r\nAdding this bit https://github.com/vercel/next.js/blob/canary/examples/with-styled-components/pages/_document.js#L5-L29\r\ndoes not work for me.",
+      "created_at": "2020-07-21T07:51:16Z"
+    },
+    {
+      "role": "user",
+      "author": "ghost",
+      "body": "@dimosmera make sure to follow these steps 👇 \r\n\r\n> hey all,\r\n> \r\n> doing this will work:\r\n> \r\n> Install babel plugin:\r\n> `yarn add --dev babel-plugin-styled-components`\r\n> \r\n> create new file `.babelrc` in your root project folder and add this:\r\n> \r\n> ```\r\n> {\r\n>     \"env\": {\r\n>       \"development\": {\r\n>         \"plugins\": [\r\n>           [\r\n>             \"babel-plugin-styled-components\",\r\n>             { \"ssr\": true, \"displayName\": true, \"preprocess\": false }\r\n>           ]\r\n>         ],\r\n>         \"presets\": [\"next/babel\"]\r\n>       },\r\n>       \"production\": {\r\n>         \"plugins\": [\r\n>           [\r\n>             \"babel-plugin-styled-components\",\r\n>             { \"ssr\": true, \"displayName\": true, \"preprocess\": false }\r\n>           ]\r\n>         ],\r\n>         \"presets\": [\"next/babel\"]\r\n>       }\r\n>     },\r\n>     \"plugins\": [\r\n>       [\r\n>         \"babel-plugin-styled-components\",\r\n>         { \"ssr\": true, \"displayName\": true, \"preprocess\": false }\r\n>       ]\r\n>     ]\r\n> }\r\n> ```",
+      "created_at": "2020-07-26T00:10:03Z"
+    },
+    {
+      "role": "user",
+      "author": "timcash",
+      "body": "Replicated with this repo https://github.com/timcash/row-test\r\nTrying to use Next.js and a spreadsheet component from https://rowsncolumns.app/\r\nLooks like it uses emotion but none of the fixes mentioned so far work\r\nI get this in the console\r\n```\r\ndownshift: You must apply the ref prop \"ref\" from getRootProps onto your root element.\r\n```\r\nand \r\n```\r\nWarning: Prop `className` did not match. Server: \"css-1fahozo\" Client: \"css-ec6wvp\"\r\n    in button (created by Context.Consumer)\r\n    in PseudoBox (created by Button)\r\n    in Button (created by Context.Consumer)\r\n    in EmotionCssPropInternal (created by IconButton)\r\n    in IconButton (created by ForwardRef)\r\n    in ForwardRef (created by Tooltip)\r\n    in Tooltip (created by Context.Consumer)\r\n    in Styled(Tooltip)\r\n    in div (created by Context.Consumer)\r\n    in Box (created by Flex)\r\n    in Flex\r\n    in div (created by Context.Consumer)\r\n    in Box (created by Toolbar)\r\n    in Toolbar (created by Context.Consumer)\r\n    in Styled(Toolbar)\r\n    in Unknown (created by ForwardRef)\r\n    in div (created by Context.Consumer)\r\n    in Box (created by Flex)\r\n    in Flex (created by ForwardRef)\r\n    in ForwardRef\r\n    in ForwardRef (created by ForwardRef)\r\n    in ColorModeProvider (created by ForwardRef)\r\n    in ThemeProvider (created by ThemeProvider)\r\n    in ThemeProvider (created by ForwardRef)\r\n    in ForwardRef (at pages/index.js:14)\r\n    in main (at pages/index.js:13)\r\n    in div (at pages/index.js:7)\r\n    in Home (at _app.js:4)\r\n    in MyApp\r\n    in ErrorBoundary (created by ReactDevOverlay)\r\n    in ReactDevOverlay (created by Container)\r\n    in Container (created by AppContainer)\r\n    in AppContainer\r\n    in Root\r\n```\r\nin the console on the browser",
+      "created_at": "2020-07-28T05:21:16Z"
+    },
+    {
+      "role": "user",
+      "author": "kayleemchugh",
+      "body": "I was having this issue when loading in a spinner from material-ui. The babel configurations above unfortunately didn't help me, so I tried a few different things. \r\n\r\nI was able to resolve it by by lazy loading the component and setting ssr to false for the spinner. \r\n\r\nimport dynamic from 'next/dynamic'\r\nconst LoadingSpinner = dynamic(() => import('./LoadingSpinner'), {ssr: false})\r\n\r\nNot sure it'll be the right fit for all cases, but hope it helps someone! \r\n",
+      "created_at": "2020-07-30T19:27:31Z"
+    },
+    {
+      "role": "user",
+      "author": "Bonjur",
+      "body": "Wrap your component with`<NoSsr>`",
+      "created_at": "2020-08-01T17:24:38Z"
+    },
+    {
+      "role": "user",
+      "author": "frontalicious-martijn",
+      "body": "Looks like you need to add _document.js with a little bit of code to get Next.js and Styled Components to work together:\r\nhttps://styled-components.com/docs/advanced#nextjs\r\n",
+      "created_at": "2020-08-15T10:19:54Z"
+    },
+    {
+      "role": "user",
+      "author": "lazygagaliu",
+      "body": "I used the 1.11.1 version and it doesn't work, and I go back to version 1.11.0-0 then it works with the settings that @bel7aG mentioned above.",
+      "created_at": "2020-08-18T10:03:41Z"
+    },
+    {
+      "role": "user",
+      "author": "samuelgoldenbaum",
+      "body": "Fixed this by adding `.babelrc` file in root of the project and added::\r\n\r\n```\r\n{\r\n  \"presets\": [\"next/babel\"],\r\n  \"plugins\": [[\"styled-components\", { \"ssr\": true }]]\r\n}\r\n```",
+      "created_at": "2020-08-29T01:32:45Z"
+    },
+    {
+      "role": "user",
+      "author": "JPGallegos1",
+      "body": "> \r\n> \r\n> hey all,\r\n> \r\n> doing this will work:\r\n> \r\n> Install babel plugin:\r\n> `yarn add --dev babel-plugin-styled-components`\r\n> \r\n> create new file `.babelrc` in your root project folder and add this:\r\n> \r\n> ```\r\n> {\r\n>     \"env\": {\r\n>       \"development\": {\r\n>         \"plugins\": [\r\n>           [\r\n>             \"babel-plugin-styled-components\",\r\n>             { \"ssr\": true, \"displayName\": true, \"preprocess\": false }\r\n>           ]\r\n>         ],\r\n>         \"presets\": [\"next/babel\"]\r\n>       },\r\n>       \"production\": {\r\n>         \"plugins\": [\r\n>           [\r\n>             \"babel-plugin-styled-components\",\r\n>             { \"ssr\": true, \"displayName\": true, \"preprocess\": false }\r\n>           ]\r\n>         ],\r\n>         \"presets\": [\"next/babel\"]\r\n>       }\r\n>     },\r\n>     \"plugins\": [\r\n>       [\r\n>         \"babel-plugin-styled-components\",\r\n>         { \"ssr\": true, \"displayName\": true, \"preprocess\": false }\r\n>       ]\r\n>     ]\r\n> }\r\n> ```\r\n\r\nIf somebody is using Chakra UI and Emotion, this helps me.",
+      "created_at": "2020-08-29T03:52:27Z"
+    },
+    {
+      "role": "user",
+      "author": "omar-dulaimi",
+      "body": "Unfortunately, no solutions here worked for me. This should be straightforward and properly documented. ",
+      "created_at": "2020-09-09T17:56:21Z"
+    },
+    {
+      "role": "user",
+      "author": "AndresCampuzano",
+      "body": "🚀I solved the issue using: `.babelrc`\r\n\r\n`{\r\n    \"presets\": [\"next/babel\"],\r\n    \"plugins\": [\r\n        [\r\n            \"styled-components\",\r\n            {\r\n                \"ssr\": true,\r\n                \"displayName\": true\r\n            }\r\n        ]\r\n    ]\r\n}\r\n`",
+      "created_at": "2020-09-13T02:14:25Z"
+    },
+    {
+      "role": "user",
+      "author": "XaFaK-01",
+      "body": "I just solved the issue by creating the \"_document.js\" and used the code as provided in the official example for Next.js from Material UI:\r\n[Material UI Next.js Example](https://github.com/mui-org/material-ui/blob/next/examples/nextjs/pages/_document.js)",
+      "created_at": "2020-09-13T13:57:27Z"
+    },
+    {
+      "role": "user",
+      "author": "AndresCampuzano",
+      "body": "> 🚀I solved the issue using: `.babelrc`\r\n> \r\n> `{ \"presets\": [\"next/babel\"], \"plugins\": [ [ \"styled-components\", { \"ssr\": true, \"displayName\": true } ] ] } `\r\n\r\nI'll leave my base Next template without the issue here: https://github.com/AndresCampuzano/Base-Next-js-React-Project",
+      "created_at": "2020-09-13T15:21:56Z"
+    },
+    {
+      "role": "user",
+      "author": "EdPutans",
+      "body": "Copying this [_document](https://github.com/vercel/next.js/blob/canary/examples/with-styled-components/pages/_document.js) posted by **songyule**  and wrapping the breaking Component in material's `<NoSSr>` helped me.\r\n",
+      "created_at": "2020-09-29T09:58:56Z"
+    },
+    {
+      "role": "user",
+      "author": "gnoyixiang",
+      "body": "I have added the code in `_document.js` and `.babelrc` but I am still facing this error. \r\nWhen the app is first loaded, there is no error. But when I make a change in one of the files and refresh the page, the error is displayed.\r\n\r\nRefer to https://github.com/gnoyixiang/next-standard-jester\r\n\r\nI am using `\"styled-components\": \"5.2.0\"` and `\"babel-plugin-styled-components\": \"1.11.1\"`\r\n\r\n`.babelrc`\r\n```\r\n{\r\n  \"presets\": [\"next/babel\"],\r\n  \"plugins\": [[\"styled-components\", { \"ssr\": true, \"displayName\": true, \"preprocess\": false }]],\r\n  \"env\": {\r\n    \"production\": {\r\n      \"plugins\": [\r\n        [\"styled-components\", { \"ssr\": true, \"displayName\": false, \"preprocess\": false }],\r\n        [\"transform-remove-console\", { \"exclude\": [\"error\", \"warn\", \"info\"] }]\r\n      ]\r\n    }\r\n  }\r\n}\r\n```\r\n`_document.js`\r\n```\r\nimport React from 'react'\r\nimport Document from 'next/document'\r\nimport { ServerStyleSheet } from 'styled-components'\r\n\r\nasync function configureStyledComponents (ctx) {\r\n  const sheet = new ServerStyleSheet()\r\n  const originalRenderPage = ctx.renderPage\r\n\r\n  try {\r\n    ctx.renderPage = () =>\r\n      originalRenderPage({\r\n        enhanceApp: App => props => sheet.collectStyles(<App {...props} />)\r\n      })\r\n\r\n    const initialProps = await Document.getInitialProps(ctx)\r\n    return {\r\n      ...initialProps,\r\n      styles: (\r\n        <>\r\n          {initialProps.styles}\r\n          {sheet.getStyleElement()}\r\n        </>\r\n      )\r\n    }\r\n  } finally {\r\n    sheet.seal()\r\n  }\r\n}\r\n\r\nclass MainDocument extends Document {}\r\n\r\nMainDocument.getInitialProps = async ctx => {\r\n  return await configureStyledComponents(ctx)\r\n}\r\n\r\nexport default MainDocument\r\n```",
+      "created_at": "2020-09-30T05:43:47Z"
+    },
+    {
+      "role": "user",
+      "author": "gnoyixiang",
+      "body": "> I have added the code in `_document.js` and `.babelrc` but I am still facing this error.\r\n> When the app is first loaded, there is no error. But when I make a change in one of the files and refresh the page, the error is displayed.\r\n> \r\n> Refer to https://github.com/gnoyixiang/next-standard-jester\r\n> \r\n> I am using `\"styled-components\": \"5.2.0\"` and `\"babel-plugin-styled-components\": \"1.11.1\"`\r\n> \r\n> `.babelrc`\r\n> \r\n> ```\r\n> {\r\n>   \"presets\": [\"next/babel\"],\r\n>   \"plugins\": [[\"styled-components\", { \"ssr\": true, \"displayName\": true, \"preprocess\": false }]],\r\n>   \"env\": {\r\n>     \"production\": {\r\n>       \"plugins\": [\r\n>         [\"styled-components\", { \"ssr\": true, \"displayName\": false, \"preprocess\": false }],\r\n>         [\"transform-remove-console\", { \"exclude\": [\"error\", \"warn\", \"info\"] }]\r\n>       ]\r\n>     }\r\n>   }\r\n> }\r\n> ```\r\n> \r\n> `_document.js`\r\n> \r\n> ```\r\n> import React from 'react'\r\n> import Document from 'next/document'\r\n> import { ServerStyleSheet } from 'styled-components'\r\n> \r\n> async function configureStyledComponents (ctx) {\r\n>   const sheet = new ServerStyleSheet()\r\n>   const originalRenderPage = ctx.renderPage\r\n> \r\n>   try {\r\n>     ctx.renderPage = () =>\r\n>       originalRenderPage({\r\n>         enhanceApp: App => props => sheet.collectStyles(<App {...props} />)\r\n>       })\r\n> \r\n>     const initialProps = await Document.getInitialProps(ctx)\r\n>     return {\r\n>       ...initialProps,\r\n>       styles: (\r\n>         <>\r\n>           {initialProps.styles}\r\n>           {sheet.getStyleElement()}\r\n>         </>\r\n>       )\r\n>     }\r\n>   } finally {\r\n>     sheet.seal()\r\n>   }\r\n> }\r\n> \r\n> class MainDocument extends Document {}\r\n> \r\n> MainDocument.getInitialProps = async ctx => {\r\n>   return await configureStyledComponents(ctx)\r\n> }\r\n> \r\n> export default MainDocument\r\n> ```\r\n\r\nissue was resolved by removing `\"displayName\": true` in `.babelrc`",
+      "created_at": "2020-09-30T10:10:32Z"
+    },
+    {
+      "role": "user",
+      "author": "thexpand",
+      "body": "What's the difference between using the custom `_document.js` and changing the `.babelrc` file?",
+      "created_at": "2020-10-04T23:01:43Z"
+    },
+    {
+      "role": "user",
+      "author": "kolnogorov",
+      "body": "> issue was resolved by removing `\"displayName\": true` in `.babelrc`\r\n\r\nBut what if i need to display class name?",
+      "created_at": "2020-10-06T13:41:57Z"
+    },
+    {
+      "role": "user",
+      "author": "jofelipe",
+      "body": "For those who are having this error with [use-dark-mode](https://github.com/donavon/use-dark-mode#readme)... Unfortunately I didn't find a solution, even with babel plugin, and styled components [example](https://github.com/vercel/next.js/tree/master/examples/with-styled-components). \r\n\r\nThe only solution I found to use dark mode with Next SSG without store any data on my server, was [this one](https://hangindev.com/blog/avoid-flash-of-default-theme-an-implementation-of-dark-mode-in-react-app) using CSS Variables by @hangindev (thank you)\r\n\r\nI hope it helps someone :)",
+      "created_at": "2020-10-09T01:24:30Z"
+    },
+    {
+      "role": "user",
+      "author": "paulius1990",
+      "body": "@jofelipe  Does issue resovled? None of this solutions worked for me, still errors appears after change.",
+      "created_at": "2020-10-14T06:35:13Z"
+    },
+    {
+      "role": "user",
+      "author": "jawadakram20",
+      "body": "No solution worked for me either.",
+      "created_at": "2020-10-14T19:18:53Z"
+    },
+    {
+      "role": "user",
+      "author": "zhangwei900808",
+      "body": "my sub component data passed in parent component getServerSideProps its workd!\r\n\r\nparent\r\n```\r\nexport async function getServerSideProps() {\r\n  return {\r\n    props: {\r\n      randomValues: JSON.stringify(randomValues)\r\n```\r\n\r\nsub\r\n```\r\n<CalendarHeatmap\r\n                weekdayLabels={weekcn}\r\n                monthLabels={monthcn}\r\n                startDate={shiftDate(today, -360)}\r\n                endDate={today}\r\n                values={JSON.parse(props.randomValues)}\r\n                classForValue={value => {\r\n                    if (!value) {\r\n                        return 'color-empty';\r\n                    }\r\n                    return `color-gitlab-${value.count}`;\r\n                }}\r\n                showWeekdayLabels={true}\r\n                onClick={value => alert(`Clicked on value with count: ${value.count}`)}\r\n            />\r\n```",
+      "created_at": "2020-10-18T13:18:31Z"
+    },
+    {
+      "role": "user",
+      "author": "MihaiWill",
+      "body": "I added `_document.js`, `.babelrc`, `dynamic import`, still get the error: `Warning: Prop 'style' did not match. Server:...` and the component don't show up",
+      "created_at": "2020-10-23T18:05:25Z"
+    },
+    {
+      "role": "user",
+      "author": "bethany-dawn",
+      "body": "I was able to narrow this error down to the tagged template literals containing variables:\r\n```\r\nimport styled from 'styled-components';\r\n\r\nconst url = 'http://some.url';\r\nconst SectionWrapper = styled.div`\r\n\tbackground: transparent url(${url});\r\n`;\r\n\r\nexport default function Section() {\r\n\treturn (\r\n\t\t<SectionWrapper />\r\n\t);\r\n}\r\n```\r\n\r\nSee https://github.com/styled-components/styled-components/issues/3259",
+      "created_at": "2020-10-29T16:51:22Z"
+    },
+    {
+      "role": "user",
+      "author": "DennisKo",
+      "body": "The next.js example for styled-components only says `\"ssr\": true` in the babel config. The secret ingredient for me was to add `\"displayName\": true` as well. \r\n\r\n```\r\n{\r\n  \"presets\": [\"next/babel\"],\r\n  \"plugins\": [[\"styled-components\", { \"ssr\": true, \"displayName\": true }]]\r\n}\r\n```",
+      "created_at": "2020-11-01T17:02:31Z"
+    },
+    {
+      "role": "user",
+      "author": "jaekunchoi",
+      "body": "This still doesn't work on latest version (10.x or 9.x) versions. Has anyone got it working?",
+      "created_at": "2020-11-03T03:21:12Z"
+    },
+    {
+      "role": "user",
+      "author": "jaekunchoi",
+      "body": "> This still doesn't work on latest version (10.x or 9.x) versions. Has anyone got it working?\r\n\r\nMy bad it's working now. I just followed [Next.js example](https://github.com/mui-org/material-ui/tree/master/examples/nextjs) on Material UI repository",
+      "created_at": "2020-11-03T13:29:18Z"
+    },
+    {
+      "role": "user",
+      "author": "paulius1990",
+      "body": "> > This still doesn't work on latest version (10.x or 9.x) versions. Has anyone got it working?\r\n> \r\n> My bad it's working now. I just followed [Next.js example](https://github.com/mui-org/material-ui/tree/master/examples/nextjs) on Material UI repository\r\n\r\nI'm not using Material UI, not helpful. Still facing this issue",
+      "created_at": "2020-11-03T14:03:49Z"
+    },
+    {
+      "role": "user",
+      "author": "phuctm97",
+      "body": "Hi guys, I've just managed to fix it by renaming `.babelrc.json` to `babel.config.json`. My `babel.config.json`:\r\n\r\n```json\r\n{\r\n  \"presets\": [\"next/babel\"],\r\n  \"plugins\": [[\"styled-components\", { \"ssr\": true }]]\r\n}\r\n```\r\n\r\nMake sure `pages/_document.(js|tsx)` is properly configured, too. Here is my `pages/_document.tsx`:\r\n```ts\r\nimport Document, { DocumentContext } from \"next/document\";\r\nimport { ServerStyleSheet } from \"styled-components\";\r\n\r\nexport default class MyDocument extends Document {\r\n  static async getInitialProps(ctx: DocumentContext) {\r\n    const sheet = new ServerStyleSheet();\r\n    const originalRenderPage = ctx.renderPage;\r\n\r\n    try {\r\n      ctx.renderPage = () =>\r\n        originalRenderPage({\r\n          enhanceApp: (App) => (props) =>\r\n            sheet.collectStyles(<App {...props} />),\r\n        });\r\n\r\n      const initialProps = await Document.getInitialProps(ctx);\r\n      return {\r\n        ...initialProps,\r\n        styles: (\r\n          <>\r\n            {initialProps.styles}\r\n            {sheet.getStyleElement()}\r\n          </>\r\n        ),\r\n      };\r\n    } finally {\r\n      sheet.seal();\r\n    }\r\n  }\r\n}\r\n```\r\n\r\n**Note** from @nasatome: Remove folder `.next` (`rm -rf .next`) if it doesn't work.\r\n\r\nHope this helps!",
+      "created_at": "2020-11-09T03:18:49Z"
+    },
+    {
+      "role": "user",
+      "author": "paulius1990",
+      "body": "> renaming `.babelrc.json` to `babel.config.json`\r\n\r\nOMG that's a clever idea. Renaming .babelrc.json to babel.config.json finally worked!!! ",
+      "created_at": "2020-11-09T18:12:34Z"
+    },
+    {
+      "role": "user",
+      "author": "nasatome",
+      "body": "> Hi guys, I've just managed to fix it by renaming `.babelrc.json` to `babel.config.json`. My `babel.config.json`:\r\n> \r\n> ```json\r\n> {\r\n>   \"presets\": [\"next/babel\"],\r\n>   \"plugins\": [[\"styled-components\", { \"ssr\": true }]]\r\n> }\r\n> ```\r\n> \r\n> Make sure `pages/_document.(js|tsx)` is properly configured, too. Here is my `pages/_document.tsx`:\r\n> \r\n> ```ts\r\n> import Document, { DocumentContext } from \"next/document\";\r\n> import { ServerStyleSheet } from \"styled-components\";\r\n> \r\n> export default class MyDocument extends Document {\r\n>   static async getInitialProps(ctx: DocumentContext) {\r\n>     const sheet = new ServerStyleSheet();\r\n>     const originalRenderPage = ctx.renderPage;\r\n> \r\n>     try {\r\n>       ctx.renderPage = () =>\r\n>         originalRenderPage({\r\n>           enhanceApp: (App) => (props) =>\r\n>             sheet.collectStyles(<App {...props} />),\r\n>         });\r\n> \r\n>       const initialProps = await Document.getInitialProps(ctx);\r\n>       return {\r\n>         ...initialProps,\r\n>         styles: (\r\n>           <>\r\n>             {initialProps.styles}\r\n>             {sheet.getStyleElement()}\r\n>           </>\r\n>         ),\r\n>       };\r\n>     } finally {\r\n>       sheet.seal();\r\n>     }\r\n>   }\r\n> }\r\n> ```\r\n> \r\n> Hope this helps!\r\n\r\ndoing this worked temporarily, for some strange reason, this worked for a moment, and when I tested it again after 2 hours, I had the same old problem, then I deleted the .next `rm -rf .next` folder and regenerated again, and that's it, now it works",
+      "created_at": "2020-11-18T01:21:07Z"
+    },
+    {
+      "role": "user",
+      "author": "lucascaton",
+      "body": "Deleting the `.next` folder solved the problem for me. Thanks, @nasatome! 👍",
+      "created_at": "2020-11-18T06:51:58Z"
+    },
+    {
+      "role": "user",
+      "author": "dnlaviv",
+      "body": "@nasatome's solution worked for me, also, I found this article that explains how to implement this solution, it also helped me understand the true cause of this error:\r\nhttps://medium.com/swlh/server-side-rendering-styled-components-with-nextjs-1db1353e915e",
+      "created_at": "2020-11-19T00:16:37Z"
+    },
+    {
+      "role": "user",
+      "author": "foysalremon",
+      "body": "I have also try medium link from @dnlaviv and none of this solve my issue. ",
+      "created_at": "2020-11-29T15:30:04Z"
+    },
+    {
+      "role": "user",
+      "author": "ghost",
+      "body": "Any luck by solving this problem guys? I'm facing it and i'm really clueless as non of the above mentioned solutions worked for me...\r\n",
+      "created_at": "2020-12-01T19:50:37Z"
+    },
+    {
+      "role": "user",
+      "author": "phuctm97",
+      "body": "> Any luck by solving this problem guys? I'm facing it and i'm really clueless as non of the above mentioned solutions worked for me...\r\n\r\nDoes this work?\r\nhttps://github.com/vercel/next.js/issues/7322#issuecomment-723730380",
+      "created_at": "2020-12-02T01:22:30Z"
+    },
+    {
+      "role": "user",
+      "author": "guirip",
+      "body": "Hello guys\r\n\r\nI've just got rid of that warning. What worked for me has been deleting the `.next` folder, thanks for the tip! :partying_face: ",
+      "created_at": "2020-12-02T14:04:43Z"
+    },
+    {
+      "role": "user",
+      "author": "huntedman",
+      "body": "For me, using a dynamic import with ssr:false fixed the issue. \r\n\r\n`const Component = dynamic(\r\n  () => import(\"3rd-party-component\"),\r\n  { ssr: false }\r\n)`\r\n\r\nI don't know exactly what caused it, but I guess that component doesn't play well with SSR. ",
+      "created_at": "2020-12-06T18:34:47Z"
+    },
+    {
+      "role": "user",
+      "author": "pedroaraujo1952",
+      "body": "I found a guide that works to me\r\n\r\nhttps://dev.to/aprietof/nextjs--styled-components-the-really-simple-guide----101c\r\n\r\nYou need to create a babel file for styled-components",
+      "created_at": "2020-12-09T02:11:09Z"
+    },
+    {
+      "role": "user",
+      "author": "honam867",
+      "body": "> I have also try medium link from @dnlaviv and none of this solve my issue.\r\n\r\nMe too",
+      "created_at": "2020-12-09T06:12:09Z"
+    },
+    {
+      "role": "user",
+      "author": "romaannaeem",
+      "body": "> \r\n> \r\n> I found a guide that works to me\r\n> \r\n> https://dev.to/aprietof/nextjs--styled-components-the-really-simple-guide----101c\r\n> \r\n> You need to create a babel file for styled-components\r\n\r\nThis worked for me. Thanks!",
+      "created_at": "2020-12-14T18:01:28Z"
+    },
+    {
+      "role": "user",
+      "author": "dalalRohit",
+      "body": "Nothing worked for me! Tried everything from the top still, the same error and the styling is off as before.\r\nI'm using MUI with TypeScript.\r\n\r\n",
+      "created_at": "2020-12-19T18:48:35Z"
+    },
+    {
+      "role": "user",
+      "author": "bryansantamaria",
+      "body": "This worked for me on version 10.0.3. Create a .babelrc in root folder and add the following:\r\n```\r\n{\r\n  \"presets\": [\"next/babel\"],\r\n  \"plugins\": [[\"styled-components\", { \"ssr\": true }]]\r\n}\r\n```\r\n\r\nI hope this works for some of you!",
+      "created_at": "2020-12-22T11:56:23Z"
+    },
+    {
+      "role": "user",
+      "author": "ellaschwarz",
+      "body": "> This worked for me on version 10.0.3. Create a .babelrc in root folder and add the following:\r\n> \r\n> ```\r\n> {\r\n>   \"presets\": [\"next/babel\"],\r\n>   \"plugins\": [[\"styled-components\", { \"ssr\": true }]]\r\n> }\r\n> ```\r\n> \r\n> I hope this works for some of you!\r\n\r\nIt worked for me aswell, thank you Bryan!!",
+      "created_at": "2020-12-22T11:58:24Z"
+    },
+    {
+      "role": "user",
+      "author": "vasilisium",
+      "body": "> Nothing worked for me! Tried everything from the top still, the same error and the styling is off as before.\r\n> I'm using MUI with TypeScript.\r\n\r\nThis was helpful for me: \r\nhttps://github.com/mui-org/material-ui/blob/master/examples/nextjs/pages/_document.js\r\nfound it here:\r\nhttps://material-ui.com/guides/server-rendering/",
+      "created_at": "2020-12-25T21:01:18Z"
+    },
+    {
+      "role": "user",
+      "author": "janigowski",
+      "body": "If you use Next.js with TypeScript this plugin should resolve your problem:\r\nhttps://github.com/Igorbek/typescript-plugin-styled-components#ttypescript-compiler",
+      "created_at": "2021-01-14T20:03:43Z"
+    },
+    {
+      "role": "user",
+      "author": "abcd-ca",
+      "body": "I'm using Next.js 10 with TypeScript but this should work for those without TypeScript too. I was able to fix this problem by creating a .babelrc file in the root of my repo containing,\r\n\r\n```json\r\n{\r\n  \"presets\": [\"next/babel\"],\r\n  \"plugins\": [[\"styled-components\", { \"ssr\": true }]]\r\n}\r\n```\r\n\r\nI got the info from the Styled Components, [Advanced section on Next.js](https://styled-components.com/docs/advanced#nextjs) which points to [this example repo](https://github.com/vercel/next.js/tree/master/examples/with-styled-components). That example suggests you need to modify `<Document>` and your .babelrc file but I did not seem to need to modify my Document for it to work. I did not need to use any special TypeScript plugins. ",
+      "created_at": "2021-01-19T14:58:38Z"
+    },
+    {
+      "role": "user",
+      "author": "briantical",
+      "body": "I tried most of the solutions though I followed the recent documentation for [babel-plugin-styled-components](https://styled-components.com/docs/tooling#usage). The solution following the guide helped.\r\n\r\n`\r\n{\r\n  \"plugins\": [\r\n    [\r\n      \"babel-plugin-styled-components\",\r\n      {\r\n        \"ssr\": false\r\n      }\r\n    ]\r\n  ]\r\n}\r\n`\r\n\r\nI hope that helps. Watch the plugin name.",
+      "created_at": "2021-01-22T10:17:56Z"
+    },
+    {
+      "role": "user",
+      "author": "jalbissimo",
+      "body": "Fixed this by creating a .babelrc file with the code below  : \r\n\r\n```\r\n{\r\n  \"presets\": [\"next/babel\"],\r\n  \"plugins\": [\r\n    [\r\n      \"module-resolver\",\r\n      {\r\n        \"root\": [\"./\"],\r\n        \"alias\": {\r\n          \"~components\": \"./src/components\"   //ignore this\r\n        }\r\n      }\r\n    ],\r\n    [\r\n      \"styled-components\",\r\n      { \"ssr\": true, \"displayName\": true, \"preprocess\": false }\r\n    ]\r\n  ]\r\n}_\r\n```\r\n\r\nAlso add the following dependency:\r\n`npm install --save-dev babel-plugin-styled-components`\r\n\r\n",
+      "created_at": "2021-01-25T08:47:29Z"
+    },
+    {
+      "role": "user",
+      "author": "bchurlinov",
+      "body": "I have a similar or I should say the same issue but when importing a custom react library ( which is working fine with React.js and uses styled-components under the hood ) but not with Next.js. If I load the desired component with \"next/dynamic\" then it works fine however I get the same problem when refreshing the page etc.\r\n\r\nDoes somebody else have/had the same issue and found a workaround. Any help would be really appreciated :)",
+      "created_at": "2021-01-29T18:04:19Z"
+    },
+    {
+      "role": "user",
+      "author": "luanmessias",
+      "body": "For me worked removing my old `babel.config.js` to a new `.babelrc` with this code:\r\n\r\n\r\n```\r\n{\r\n  \"presets\": [\r\n    \"next/babel\"\r\n  ],\r\n  \"plugins\": [\r\n    [\r\n      \"styled-components\",\r\n      {\r\n        \"ssr\": true,\r\n        \"displayName\": true,\r\n        \"preprocess\": false\r\n      }\r\n    ]\r\n  ]\r\n}\r\n\r\n```",
+      "created_at": "2021-02-06T03:31:07Z"
+    },
+    {
+      "role": "user",
+      "author": "ncn-ends",
+      "body": "Next's configuration example worked for me whereas all the other solutions didn't work.\r\nhttps://github.com/vercel/next.js/blob/master/examples/with-react-jss/pages/_document.js\r\n\r\n```\r\nimport Document from 'next/document'\r\nimport { SheetsRegistry, JssProvider, createGenerateId } from 'react-jss'\r\n\r\nexport default class JssDocument extends Document {\r\n  static async getInitialProps(ctx) {\r\n    const registry = new SheetsRegistry()\r\n    const generateId = createGenerateId()\r\n    const originalRenderPage = ctx.renderPage\r\n    ctx.renderPage = () =>\r\n      originalRenderPage({\r\n        enhanceApp: (App) => (props) => (\r\n          <JssProvider registry={registry} generateId={generateId}>\r\n            <App {...props} />\r\n          </JssProvider>\r\n        ),\r\n      })\r\n\r\n    const initialProps = await Document.getInitialProps(ctx)\r\n\r\n    return {\r\n      ...initialProps,\r\n      styles: (\r\n        <>\r\n          {initialProps.styles}\r\n          <style id=\"server-side-styles\">{registry.toString()}</style>\r\n        </>\r\n      ),\r\n    }\r\n  }\r\n}\r\n```",
+      "created_at": "2021-02-06T08:19:19Z"
+    },
+    {
+      "role": "user",
+      "author": "santiagoMeloMedina",
+      "body": "> This worked for me on version 10.0.3. Create a .babelrc in root folder and add the following:\r\n> \r\n> ```\r\n> {\r\n>   \"presets\": [\"next/babel\"],\r\n>   \"plugins\": [[\"styled-components\", { \"ssr\": true }]]\r\n> }\r\n> ```\r\n> \r\n> I hope this works for some of you!\r\n\r\nAmazing! It worked for me as well! Thanks!",
+      "created_at": "2021-02-06T21:54:23Z"
+    },
+    {
+      "role": "user",
+      "author": "ashemag",
+      "body": "I still have this issue for using a styled div on a component, with the .babelrc and _document.js set like above :( ",
+      "created_at": "2021-02-11T21:44:26Z"
+    },
+    {
+      "role": "user",
+      "author": "oarthursilva",
+      "body": "Deleting the `.next` folder solved the problem for me. Thanks, @nasatome ! 👍+1\r\n",
+      "created_at": "2021-02-12T23:15:48Z"
+    },
+    {
+      "role": "user",
+      "author": "raptoria",
+      "body": "I'm still having this issue with Next.js V.10.0.6 using styled-components. I tried all the fixes in this thread and none of them worked. Deleting the .next folder is only a temporary fix. It comes back for me.",
+      "created_at": "2021-02-14T20:33:45Z"
+    },
+    {
+      "role": "user",
+      "author": "felangga",
+      "body": "Still having the same issue, all the fixes still not working for me ",
+      "created_at": "2021-02-15T14:30:57Z"
+    },
+    {
+      "role": "user",
+      "author": "raptoria",
+      "body": "Can this issue be reopened?",
+      "created_at": "2021-02-15T22:19:44Z"
+    },
+    {
+      "role": "user",
+      "author": "sagars01",
+      "body": "Please reopen this issue, this is happening for me while using antd.",
+      "created_at": "2021-02-16T18:58:54Z"
+    },
+    {
+      "role": "user",
+      "author": "felangga",
+      "body": "This happening for me too if I'm using react elastic carousel and react datatable component together",
+      "created_at": "2021-02-17T02:29:18Z"
+    },
+    {
+      "role": "user",
+      "author": "osamasayed",
+      "body": "I am having the same problem as well.",
+      "created_at": "2021-02-17T09:26:50Z"
+    },
+    {
+      "role": "user",
+      "author": "timneutkens",
+      "body": "Please read this thread: https://github.com/vercel/next.js/issues/11600#issuecomment-722433356\r\n\r\nReopening this issue would not have any benefit as it's not an issue with Next.js. It's an issue with the libraries you're using (e.g. styled-components) and having them incorrectly configured (e.g. not adding pre-rendering support for the library as shown in the examples). In case of styled-components see this comment: https://github.com/vercel/next.js/issues/11600#issuecomment-745165507. Examples directory: https://github.com/vercel/next.js/tree/canary/examples",
+      "created_at": "2021-02-17T09:31:16Z"
+    },
+    {
+      "role": "user",
+      "author": "raptoria",
+      "body": "this is a link to a repo that can reproduce the error. I pasted the _document directly from [the example](https://github.com/vercel/next.js/blob/canary/examples/with-styled-components/pages/_document.js): https://github.com/raptoria/nextjs-monorepo\r\n\r\n`react-dom.development.js?b829:88 Warning: Prop `className` did not match. Server: \"sc-hHftDr iOKRSw\" Client: \"sc-dlfnbm gjnYCT\"`",
+      "created_at": "2021-02-17T19:10:50Z"
+    },
+    {
+      "role": "user",
+      "author": "Amstrong",
+      "body": "> This worked for me on version 10.0.3. Create a .babelrc in the root folder and add the following:\r\n> \r\n> ```\r\n> {\r\n>   \"presets\": [\"next/babel\"],\r\n>   \"plugins\": [[\"styled-components\", { \"ssr\": true }]]\r\n> }\r\n> ```\r\n> \r\n> I hope this works for some of you!\r\n\r\nThis works for me on version  10.0.7. Thanks!\r\nYou need to create the .babelrc and compile again your project. Another option is deleting directory .next and same, compile again. ",
+      "created_at": "2021-02-18T00:04:16Z"
+    },
+    {
+      "role": "user",
+      "author": "fredericrous",
+      "body": "I just hit this issue on v10.0.5 by putting a js variable inside my css, if I remove the variable, the warning goes away\r\n\r\n```js\r\n  const { theme } = useTheme()\r\n  const color = theme === 'light' ? '#fff' : '#000'\r\n\r\n  return (\r\n    <div>\r\n      <div onClick={handleClick} className=\"menu-btn \" tabIndex=\"2\" role=\"switch\" aria-checked={isChecked}>\r\n        <div className=\"menu-btn__burger dark:bg-white bg-dark\" />\r\n      </div>\r\n\r\n      <style jsx>{`\r\n        .menu-btn {\r\n          border: solid ${color} 2px;\r\n        }\r\n     `}</style>\r\n  </div>\r\n)\r\n```\r\n\r\nit worked fine the first few times, without showing a warning, then I got the below message in the browser's console:\r\n\r\n```sh\r\nreact-dom.development.js?61bb:67 Warning: Prop `className` did not match. Server: \"jsx-2216758340 menu-btn__burger dark:bg-white bg-dark\" Client: \"jsx-4073763346 menu-btn__burger dark:bg-white bg-dark\"\r\n    at div\r\n```",
+      "created_at": "2021-02-24T00:18:41Z"
+    },
+    {
+      "role": "user",
+      "author": "eliascotto",
+      "body": "Fixed in a clean way\r\n```javascript\r\n// .babelrc\r\n{\r\n  \"presets\": [\"next/babel\"],\r\n  \"plugins\": [[\"styled-components\", { \"ssr\": true, \"preprocess\": false }]]\r\n}\r\n```",
+      "created_at": "2021-02-26T03:10:31Z"
+    },
+    {
+      "role": "user",
+      "author": "DavidDionise",
+      "body": "> This worked for me on version 10.0.3. Create a .babelrc in root folder and add the following:\r\n> \r\n> ```\r\n> {\r\n>   \"presets\": [\"next/babel\"],\r\n>   \"plugins\": [[\"styled-components\", { \"ssr\": true }]]\r\n> }\r\n> ```\r\n> \r\n> I hope this works for some of you!\r\n\r\nWorked for me, thank you!!!",
+      "created_at": "2021-02-27T02:41:48Z"
+    },
+    {
+      "role": "user",
+      "author": "osequi",
+      "body": "I have the same issue with Emotion. Perhaps since I've updated Nextjs last week.\r\n\r\nEDIT: Reverting my code fixed this issue.\r\n",
+      "created_at": "2021-03-07T00:39:15Z"
+    },
+    {
+      "role": "user",
+      "author": "Christian-Haugland",
+      "body": "Even with the .babelrc file, along with updating the babel-plugin-styled-components package, I still get the error when I try using a variable in my styled component (currently using ts). Everything else works normally.\r\n\r\nbabel-plugin-styled-components: 1.12.0\r\nnext: 10.0.7\r\n\r\nEDIT: the variable is imported. I'm able to console.log it, and the style change appears on hot reload. However, with refresh and initial startup of the dev-script, I get the error. I've tested multiple plugins and .babelrc options (including babel-macros) to no avail. Currently given up and instead defined local variables in a global.css stylesheet, which works for the time being.",
+      "created_at": "2021-03-08T09:56:03Z"
+    },
+    {
+      "role": "user",
+      "author": "riuann23",
+      "body": "> For me worked removing my old `babel.config.js` to a new `.babelrc` with this code:\r\n> \r\n> ```\r\n> {\r\n>   \"presets\": [\r\n>     \"next/babel\"\r\n>   ],\r\n>   \"plugins\": [\r\n>     [\r\n>       \"styled-components\",\r\n>       {\r\n>         \"ssr\": true,\r\n>         \"displayName\": true,\r\n>         \"preprocess\": false\r\n>       }\r\n>     ]\r\n>   ]\r\n> }\r\n> ```\r\n\r\nthis worked for me! THANKS!!",
+      "created_at": "2021-03-11T11:40:50Z"
+    },
+    {
+      "role": "user",
+      "author": "olarra",
+      "body": "It was driving me crazy! I spent so many days in this warning and no of the solutions fixed it for me. I finally getting work putting this in the .babelrc file\r\n\r\n```\r\n{\r\n  \"presets\": [\r\n    \"next/babel\"\r\n  ],\r\n  \"plugins\": [\r\n    [\r\n      \"babel-plugin-styled-components\",\r\n      {\r\n        \"ssr\": true,\r\n        \"minify\": true,\r\n        \"transpileTemplateLiterals\": true,\r\n        \"pure\": true,\r\n        \"displayName\": true,\r\n        \"preprocess\": false\r\n      }\r\n    ]\r\n  ]\r\n}",
+      "created_at": "2021-03-12T16:02:08Z"
+    },
+    {
+      "role": "user",
+      "author": "jason-dark",
+      "body": "The only way I got this to work was having my `.babelrc` file like this:\r\n```\r\n{\r\n  \"presets\": [\"next/babel\"],\r\n  \"plugins\": [[\"styled-components\", { \"ssr\": true }]]\r\n}\r\n```\r\n\r\nAnd creating `pages/_document.js` like this:\r\n```\r\nimport Document, { Html, Head, Main, NextScript } from 'next/document'\r\nimport { ServerStyleSheet } from 'styled-components'\r\n\r\nexport default class MyDocument extends Document {\r\n  static getInitialProps({ renderPage }) {\r\n    const sheet = new ServerStyleSheet()\r\n    const page = renderPage((App) => (props) =>\r\n      sheet.collectStyles(<App {...props} />)\r\n    )\r\n    const styleTags = sheet.getStyleElement()\r\n    return { ...page, styleTags }\r\n  }\r\n\r\n  render() {\r\n    return (\r\n      <Html>\r\n        <Head>{this.props.styleTags}</Head>\r\n        <body>\r\n          <Main />\r\n          <NextScript />\r\n        </body>\r\n      </Html>\r\n    )\r\n  }\r\n}\r\n```\r\n\r\nIn my case resolving this error resolved an issue I had whereby anchor tags created using a styled component would not render with any of the styling applied to them.\r\n",
+      "created_at": "2021-03-22T11:26:37Z"
+    },
+    {
+      "role": "user",
+      "author": "devbyray",
+      "body": "Worked for me as well!\r\n\r\n> Fixed in a clean way\r\n> \r\n> ```js\r\n> // .babelrc\r\n> {\r\n>   \"presets\": [\"next/babel\"],\r\n>   \"plugins\": [[\"styled-components\", { \"ssr\": true, \"preprocess\": false }]]\r\n> }\r\n> ```\r\n\r\n",
+      "created_at": "2021-03-23T13:37:12Z"
+    },
+    {
+      "role": "user",
+      "author": "pmdpaula",
+      "body": "> \r\n> \r\n> It was driving me crazy! I spent so many days in this warning and no of the solutions fixed it for me. I finally getting work putting this in the .babelrc file\r\n> \r\n> ```\r\n> {\r\n>   \"presets\": [\r\n>     \"next/babel\"\r\n>   ],\r\n>   \"plugins\": [\r\n>     [\r\n>       \"babel-plugin-styled-components\",\r\n>       {\r\n>         \"ssr\": true,\r\n>         \"minify\": true,\r\n>         \"transpileTemplateLiterals\": true,\r\n>         \"pure\": true,\r\n>         \"displayName\": true,\r\n>         \"preprocess\": false\r\n>       }\r\n>     ]\r\n>   ]\r\n> }\r\n> ```\r\n\r\nThanks. Only this worked for me.",
+      "created_at": "2021-03-31T21:02:27Z"
+    },
+    {
+      "role": "user",
+      "author": "shivarajsb",
+      "body": "> {\r\n>   \"presets\": [\r\n>     \"next/babel\"\r\n>   ],\r\n>   \"plugins\": [\r\n>     [\r\n>       \"babel-plugin-styled-components\",\r\n>       {\r\n>         \"ssr\": true,\r\n>         \"minify\": true,\r\n>         \"transpileTemplateLiterals\": true,\r\n>         \"pure\": true,\r\n>         \"displayName\": true,\r\n>         \"preprocess\": false\r\n>       }\r\n>     ]\r\n>   ]\r\n> }\r\n\r\nThis worked for me, thanks a ton man",
+      "created_at": "2021-04-01T17:36:25Z"
+    },
+    {
+      "role": "user",
+      "author": "myrjola",
+      "body": "We started getting this warning when our component library imported in another npm package introduced code-splitting.\r\nWhat ultimately fixed this for us was to revert back to weback 4 by removing the following from next.config.js:\r\n\r\n```\r\n  future: {\r\n    webpack5: true,\r\n  },\r\n```",
+      "created_at": "2021-04-23T17:45:13Z"
+    },
+    {
+      "role": "user",
+      "author": "cunguyendev",
+      "body": "If anyone else got the same issues, let recheck/custom _document, it will work correctly. View more at https://nextjs.org/docs/advanced-features/custom-document",
+      "created_at": "2021-05-07T02:56:45Z"
+    },
+    {
+      "role": "user",
+      "author": "stefansdev",
+      "body": "@cunguyendev I can confirm this.\r\nFound this simple guide which fixes this issue: https://dev.to/aprietof/nextjs--styled-components-the-really-simple-guide----101c",
+      "created_at": "2021-05-07T15:29:30Z"
+    },
+    {
+      "role": "user",
+      "author": "AbreezaSaleem",
+      "body": "I'm not using styled-components and I'm getting this issue...",
+      "created_at": "2021-05-10T13:16:43Z"
+    },
+    {
+      "role": "user",
+      "author": "SergiOca87",
+      "body": "> @cunguyendev I can confirm this.\r\n> Found this simple guide which fixes this issue: https://dev.to/aprietof/nextjs--styled-components-the-really-simple-guide----101c\r\n\r\nThis just partially works for me, I still get the error but I was getting the error and the Component was unstyled every time the error showed. Now the error shows but the Component keeps the styles.\r\n",
+      "created_at": "2021-05-11T12:56:47Z"
+    },
+    {
+      "role": "user",
+      "author": "stefansdev",
+      "body": "> > @cunguyendev I can confirm this.\r\n> > Found this simple guide which fixes this issue: https://dev.to/aprietof/nextjs--styled-components-the-really-simple-guide----101c\r\n> \r\n> This just partially works for me, I still get the error but I was getting the error and the Component was unstyled every time the error showed. Now the error shows but the Component keeps the styles.\r\n\r\nTry `_document.js` like this:\r\n\r\n```\r\nimport Document, { Html, Head, Main, NextScript } from 'next/document';\r\nimport { ServerStyleSheet } from 'styled-components';\r\n\r\nexport default class MyDocument extends Document {\r\n\tstatic getInitialProps({ renderPage }) {\r\n\t\tconst sheet = new ServerStyleSheet();\r\n\t\tconst page = renderPage((App) => (props) => sheet.collectStyles(<App {...props} />));\r\n\t\tconst styleTags = sheet.getStyleElement();\r\n\t\treturn { ...page, styleTags };\r\n\t}\r\n\r\n\trender() {\r\n\t\treturn (\r\n\t\t\t<Html>\r\n\t\t\t\t<Head>{this.props.styleTags}</Head>\r\n\t\t\t\t<body>\r\n\t\t\t\t\t<Main />\r\n\t\t\t\t\t<NextScript />\r\n\t\t\t\t</body>\r\n\t\t\t</Html>\r\n\t\t);\r\n\t}\r\n}\r\n```",
+      "created_at": "2021-05-11T12:59:52Z"
+    },
+    {
+      "role": "user",
+      "author": "gregg-cbs",
+      "body": "### Confirmed Solution\r\nThanks to all contributions here I can confirm the **final solution**:\r\n\r\n#### .babelrc file\r\n```\r\n// .babelrc\r\n// If you do not have a .babelrc file, create it, it goes in the root of your project.\r\n// paste the below code into it\r\n{\r\n  \"presets\": [\r\n    \"next/babel\"\r\n  ],\r\n  \"plugins\": [\r\n    [\r\n      \"babel-plugin-styled-components\", // <- you must: npm install -D babel-plugin-styled-components\r\n      {\r\n        \"ssr\": true,\r\n        \"minify\": true,\r\n        \"transpileTemplateLiterals\": true,\r\n        \"pure\": true,\r\n        \"displayName\": true,\r\n        \"preprocess\": false\r\n      }\r\n    ]\r\n  ]\r\n}\r\n```\r\n------\r\n#### _document.js file\r\nI have noticed without these additions to the _document file there are instances in dev that you will see the classname error.\r\n\r\n```\r\n// _document.js\r\n// If you do not have a _document.js file create it in your pages folder.\r\n// paste the below code into it or copy the getInitialProps\r\n\r\nimport Document, {Head, Html, Main, NextScript} from 'next/document'\r\nimport {ServerStyleSheet} from 'styled-components';\r\n\r\nclass MyDocument extends Document {\r\n  static getInitialProps({ renderPage }) {\r\n    const sheet = new ServerStyleSheet();\r\n    const page = renderPage((App) => (props) => sheet.collectStyles(<App {...props} />));\r\n    const styleTags = sheet.getStyleElement();\r\n    return { ...page, styleTags };\r\n  }\r\n\r\n  render() {\r\n    return (\r\n      <Html lang=\"en\">\r\n        <Head>\r\n          {this.props.styleTags}\r\n        </Head>\r\n        <body>\r\n          <Main/>\r\n          <NextScript/>\r\n        </body>\r\n      </Html>\r\n    )\r\n  }\r\n}\r\n\r\nexport default MyDocument\r\n```",
+      "created_at": "2021-05-22T16:10:14Z"
+    },
+    {
+      "role": "user",
+      "author": "Victor-Salomon",
+      "body": "> I'm not using styled-components and I'm getting this issue...\r\n\r\nDo you still facing the issue ? I'm having same thing but only on safari and firefox. Chrome works well\r\n",
+      "created_at": "2021-05-26T14:04:18Z"
+    },
+    {
+      "role": "user",
+      "author": "AbreezaSaleem",
+      "body": "> > I'm not using styled-components and I'm getting this issue...\r\n> \r\n> Do you still facing the issue ? I'm having same thing but only on safari and firefox. Chrome works well\r\n\r\nI fixed my issue following this answer: https://stackoverflow.com/questions/59494037/how-to-detect-the-device-on-react-ssr-app-with-next-js/60146925#60146925",
+      "created_at": "2021-05-26T15:48:52Z"
+    },
+    {
+      "role": "user",
+      "author": "ghost",
+      "body": "So I am just trying out nextjs, found this \"closed\" issue attempting to use MaterialUI.  The documentation on this is very lacking, the process is frustrating.  For those of you who got this to work, congrats.  For me, this essentially makes next.js a non-starter for me.  Several hours of my life just trying to get a well known project working is not worth my time.",
+      "created_at": "2021-05-27T16:06:26Z"
+    },
+    {
+      "role": "user",
+      "author": "royhadad",
+      "body": "This is the solution that worked for me, thanks to @Diabl0269 for the help.\r\n\r\nAdd a file \"_document.js\" under the pages folder (assuming you don't already have one), as seen on the official material-ui example:\r\nhttps://github.com/mui-org/material-ui/blob/master/examples/nextjs/pages/_document.js\r\n\r\ncopy the entire file.\r\n\r\nIf you want to add a title tag to your project, add it in the _app.js file as shown in the example over here:\r\nhttps://nextjs.org/docs/messages/no-document-title",
+      "created_at": "2021-05-27T23:17:05Z"
+    },
+    {
+      "role": "user",
+      "author": "Diabl0269",
+      "body": "> This is the solution that worked for me, thanks to @Diabl0269 for the help.\n> \n> Add a file \"_document.js\" under the pages folder (assuming you don't already have one), as seen on the official material-ui example:\n> https://github.com/mui-org/material-ui/blob/master/examples/nextjs/pages/_document.js\n> \n> copy the entire file.\n> \n> If you want to add a title tag to your project, add it in the _app.js file as shown in the example over here:\n> https://nextjs.org/docs/messages/no-document-title\n\nRegarding the title tag, you can add such a tag on each page for different titles.",
+      "created_at": "2021-05-28T00:30:10Z"
+    },
+    {
+      "role": "user",
+      "author": "DevelopersTopHat",
+      "body": "Running into this issue as well, but am not using styled components. The reason I am running in to it is because I have dynamic styles based on the selection of jump links eg \"/#description\".\r\n\r\nNot sure of a good fix for it though.\r\n\r\nEdit with update:\r\n\r\nWent ahead and did a client side implementation of the dynamic styles. Instead of reading the url with useRouter, I tracked which link was being pressed through ids and applied the styles based on the state of the active id.",
+      "created_at": "2021-06-17T22:09:21Z"
+    },
+    {
+      "role": "user",
+      "author": "fultonm",
+      "body": "> Running into this issue as well, but am not using styled components. The reason I am running in to it is because I have dynamic styles based on the selection of jump links eg \"/#description\".\n> \n> \n> \n> Not sure of a good fix for it though.\n\nI was also getting this error with dynamic class names and not using styled components. It turns out Next.js will always do Server Side Generation and expects the first render on the client to agree with the SSG version. Subsequent renders are then allowed change the DOM to take into account client side state per my cursory understanding. There are different things you can do to ensure the first render matches what the server would generate (whatever it would generate without access to localStorage or the client's state container.) since the hashtag portion of jump links aren't sent to the server, and only interpreted by the browser, you may need to use a workaround to have the server be aware of it.\n\nIt was with this error I realized the always-on server side generation aspect was not compatible/logical with the design of my app and swapped to OG React. If this error is just for a page or two it might make sense to do the workarounds.\n\nJust based on what I picked up before switching. Could be wrong. Hope this helps. ",
+      "created_at": "2021-06-17T22:37:55Z"
+    },
+    {
+      "role": "user",
+      "author": "mmajde",
+      "body": "Hello everyone,\r\nI was also encountering this issue in combination with nextjs and material-ui and it was breaking my UI. I am not sure if this would occur in production or only in development environment. For me it only occurred on the first page which was being loaded by nextjs. I tried the babelrc config but it didn't work for me (at least not consistently).\r\n\r\nI managed to tackle this with kind of a hack. I added\r\n```\r\n  useEffect(() => {\r\n    setComponentMounted(true)\r\n  }, []);\r\n```\r\nand I display the page content once the componentMounted is set to true. This is my way of waiting for old style ```componentDidMount``` to happen. I do not get the warning anymore and my application renders correctly.\r\n\r\nI am however not sure if this is a correct approach and what is the main reason for this bug/warning. Looking forward to your thoughts on that and further insights/ideas. ",
+      "created_at": "2021-06-24T21:58:09Z"
+    },
+    {
+      "role": "user",
+      "author": "simpleprogrammer2",
+      "body": "I am facing the same issue right, no matter what I do error is not going away please help !! ",
+      "created_at": "2021-06-24T23:16:08Z"
+    },
+    {
+      "role": "user",
+      "author": "ost-ing",
+      "body": "Also facing this issue on Next 11 using styled-components",
+      "created_at": "2021-06-29T13:36:10Z"
+    },
+    {
+      "role": "user",
+      "author": "Shashank-Salian",
+      "body": "Same issue here, tried editing .babelrc still no luck : (\r\n\r\nError I get :\r\n`Warning: Prop 'disabled' did not match. Server: \"null\" Client: \"true\" button`\r\n\r\n\r\nMy .babelrc looks something like this :\r\n```json\r\n{\r\n\t\"presets\": [\r\n\t  \"next/babel\"\r\n\t],\r\n\t\"plugins\": [\r\n\t  [\r\n\t\t\"styled-components\",\r\n\t\t{\r\n\t\t  \"ssr\": true,\r\n\t\t  \"displayName\": true,\r\n\t\t  \"preprocess\": false\r\n\t\t}\r\n\t  ]\r\n\t]\r\n}\r\n```\r\n\r\nNext js: 11, styled-components: 5.3, react: 17",
+      "created_at": "2021-06-30T11:18:14Z"
+    },
+    {
+      "role": "user",
+      "author": "gregg-cbs",
+      "body": "@Shashank-Salian \r\nDo you have the getInitialProps in _document as recommended by their docs?\r\nhttps://github.com/vercel/next.js/issues/7322#issuecomment-846429604\r\n",
+      "created_at": "2021-06-30T12:52:55Z"
+    },
+    {
+      "role": "user",
+      "author": "Shashank-Salian",
+      "body": "> \r\n> \r\n> @Shashank-Salian\r\n> Do you have the getInitialProps in _document as recommended by their docs?\r\n> [#7322 (comment)](https://github.com/vercel/next.js/issues/7322#issuecomment-846429604)\r\n\r\nYes, looks something like this :\r\n```javascript\r\nimport React from 'react';\r\nimport Document, { Html, Head, Main, NextScript } from 'next/document';\r\nimport { ServerStyleSheet } from 'styled-components';\r\n\r\nclass InstagramDocument extends Document {\r\n\tstatic async getInitialProps(ctx: any) {\r\n\t\tconst sheet = new ServerStyleSheet();\r\n\t\tconst originalRenderPage = ctx.renderPage;\r\n\r\n\t\ttry {\r\n\t\t\tctx.renderPage = () =>\r\n\t\t\t\toriginalRenderPage({\r\n\t\t\t\t\tenhanceApp: (App: any) => (props: any) =>\r\n\t\t\t\t\t\tsheet.collectStyles(<App {...props} />),\r\n\t\t\t\t});\r\n\r\n\t\t\tconst initialProps = await Document.getInitialProps(ctx);\r\n\t\t\treturn {\r\n\t\t\t\t...initialProps,\r\n\t\t\t\tstyles: (\r\n\t\t\t\t\t<>\r\n\t\t\t\t\t\t{initialProps.styles}\r\n\t\t\t\t\t\t{sheet.getStyleElement()}\r\n\t\t\t\t\t</>\r\n\t\t\t\t),\r\n\t\t\t};\r\n\t\t} finally {\r\n\t\t\tsheet.seal();\r\n\t\t}\r\n\t}\r\n\r\n\trender() {\r\n\t\treturn (\r\n\t\t\t<Html lang=\"en\">\r\n\t\t\t\t<body>\r\n\t\t\t\t\t<Main />\r\n\t\t\t\t\t<NextScript />\r\n\t\t\t\t</body>\r\n\t\t\t</Html>\r\n\t\t);\r\n\t}\r\n}\r\n\r\nexport default InstagramDocument;\r\n\r\n```\r\nI have copied it from somewhere, I don't remember properly. Also I don't really understand what's going on here.",
+      "created_at": "2021-06-30T13:08:37Z"
+    },
+    {
+      "role": "user",
+      "author": "ncesar",
+      "body": "same issue :( omg",
+      "created_at": "2021-07-01T00:37:03Z"
+    },
+    {
+      "role": "user",
+      "author": "leonardofaria",
+      "body": "Followed @phuctm97 tips but I'm getting the warning in the first page load (after `yarn dev`). However, once I change one component, hot reload reloads the component and styles are just fine.\r\n\r\nOne of the things I did was disabling webpack 5: no difference, except by the fact that with webpack 4 next js will warn you that it is using a custom `.babelrc`",
+      "created_at": "2021-07-06T03:59:31Z"
+    },
+    {
+      "role": "user",
+      "author": "enkhtulga",
+      "body": "Any update?",
+      "created_at": "2021-07-13T09:43:36Z"
+    },
+    {
+      "role": "user",
+      "author": "yuri-barone",
+      "body": "I've removed reactStrictMode: true from my next.config.js and it works",
+      "created_at": "2021-07-13T12:51:01Z"
+    },
+    {
+      "role": "user",
+      "author": "StevenCreates",
+      "body": "Looks like I'm moving back to CRA :( bye bye nextjs.. I will come back to you once I can use styled-components with you",
+      "created_at": "2021-07-18T15:05:05Z"
+    },
+    {
+      "role": "user",
+      "author": "enricoros",
+      "body": "> I've removed reactStrictMode: true from my next.config.js and it works\r\n\r\nSame here.. by removing the ```<React.StrictMode>``` line.. \r\nBut why is this?",
+      "created_at": "2021-07-23T00:23:03Z"
+    },
+    {
+      "role": "user",
+      "author": "shehi",
+      "body": "Indeed \"dynamic import\" solution suggested in #7423 works.",
+      "created_at": "2021-07-25T23:57:23Z"
+    },
+    {
+      "role": "user",
+      "author": "christineurban",
+      "body": "OMFG I finally fixed this after trying all the things and ignoring for months then coming back to try again over and over 🤯 🙌🏽  Note I'm using Next.js with Nx monorepo.\r\n- drop this in ALL of the `.babelrc`s (in libs and apps) and the root`babel.config.json`:\r\n```\r\n\"plugins\": [\r\n    [\"styled-components\", { \"ssr\": true, \"displayName\": true }]\r\n  ]\r\n```\r\n- I left the `presets` the same in each babel config as they were all different and that didn't seem to affect anything\r\n- **KEY CHANGE THAT MADE THIS WORK (for me):**   I deleted the root `dist` folder, since the project uses `next.config.js` instead of `.next`. I would think if your project uses a `build` folder you could delete that and have the same effect.\r\n- Restart server and refresh pages over and over\r\n- NO CLASS NAME MISMATCH 🥳 \r\n- This also fixed my `displayName` issue where it was showing `sc-blahblah` and now it shows `Heading-blahblah`",
+      "created_at": "2021-08-02T23:26:58Z"
+    },
+    {
+      "role": "user",
+      "author": "dks-customs",
+      "body": "Hey if you're using material-ui with nextjs what FINALLY made it work for me (next 11.0.1, sc 5.3.0, babel-plugin-sc 1.13.2) was @jaedung comment. And it's hidden ;). Thank you!\r\nhttps://github.com/vercel/next.js/issues/7322#issuecomment-574009086\r\n\r\nAll of the solutions above (changing .babelrc, _document from styled-components docs ) didn't work and I didn't want to lose strict mode.  In addition, my .babelrc:\r\n\r\n```\r\n{\r\n  \"presets\": [\"next/babel\"],\r\n  \"plugins\": [[\"styled-components\", { \"ssr\": true, \"displayName\": true }]]\r\n}\r\n```\r\n\r\nDelete .next folder, run build again and voila. \r\n",
+      "created_at": "2021-08-06T09:00:57Z"
+    },
+    {
+      "role": "user",
+      "author": "shobhitsharma",
+      "body": "I have similar issue, but with emotion. The issue occurs only in Safari and Firefox. Anyone manage to make it work?\r\n\r\n<img width=\"801\" alt=\"Screenshot 2021-08-15 at 16 19 25\" src=\"https://user-images.githubusercontent.com/772855/129481583-eb878aed-4919-4674-bb96-e46b618d59f9.png\">\r\n",
+      "created_at": "2021-08-15T14:21:34Z"
+    },
+    {
+      "role": "user",
+      "author": "JimLynchCodes",
+      "body": "yerp, I'm seeing this error too on the latest versions 😢",
+      "created_at": "2021-08-22T01:15:00Z"
+    },
+    {
+      "role": "user",
+      "author": "sania1801",
+      "body": "Any updates?\r\n",
+      "created_at": "2021-08-23T21:27:52Z"
+    },
+    {
+      "role": "user",
+      "author": "Baukaalm",
+      "body": "I have that error when I reload page ctrl + r  and my HTML markup destroyed",
+      "created_at": "2021-08-27T17:36:16Z"
+    },
+    {
+      "role": "user",
+      "author": "raphaelvdossantos",
+      "body": "This is ridiculous.\r\nYears later and the issue still continues...\r\n",
+      "created_at": "2021-08-28T09:29:57Z"
+    },
+    {
+      "role": "user",
+      "author": "dankerk",
+      "body": "This is probably not a real solution and not really what you want to do. But for the time being this is good enough for me as I don't want to waste any more time.\r\n\r\nAfter trying and failing with the solutions mentioned above changing  reactStrictMode to false is what worked for me.\r\nChange **next.config.js** to:\r\n```\r\n/** @type {import('next').NextConfig} */\r\n\r\nmodule.exports = {\r\n  reactStrictMode: false,\r\n}\r\n```\r\n\r\n",
+      "created_at": "2021-08-29T17:58:14Z"
+    },
+    {
+      "role": "user",
+      "author": "raphaelvdossantos",
+      "body": "> > @Shashank-Salian\r\n> > Do you have the getInitialProps in _document as recommended by their docs?\r\n> > [#7322 (comment)](https://github.com/vercel/next.js/issues/7322#issuecomment-846429604)\r\n> \r\n> Yes, looks something like this :\r\n> \r\n> ```js\r\n> import React from 'react';\r\n> import Document, { Html, Head, Main, NextScript } from 'next/document';\r\n> import { ServerStyleSheet } from 'styled-components';\r\n> \r\n> class InstagramDocument extends Document {\r\n> \tstatic async getInitialProps(ctx: any) {\r\n> \t\tconst sheet = new ServerStyleSheet();\r\n> \t\tconst originalRenderPage = ctx.renderPage;\r\n> \r\n> \t\ttry {\r\n> \t\t\tctx.renderPage = () =>\r\n> \t\t\t\toriginalRenderPage({\r\n> \t\t\t\t\tenhanceApp: (App: any) => (props: any) =>\r\n> \t\t\t\t\t\tsheet.collectStyles(<App {...props} />),\r\n> \t\t\t\t});\r\n> \r\n> \t\t\tconst initialProps = await Document.getInitialProps(ctx);\r\n> \t\t\treturn {\r\n> \t\t\t\t...initialProps,\r\n> \t\t\t\tstyles: (\r\n> \t\t\t\t\t<>\r\n> \t\t\t\t\t\t{initialProps.styles}\r\n> \t\t\t\t\t\t{sheet.getStyleElement()}\r\n> \t\t\t\t\t</>\r\n> \t\t\t\t),\r\n> \t\t\t};\r\n> \t\t} finally {\r\n> \t\t\tsheet.seal();\r\n> \t\t}\r\n> \t}\r\n> \r\n> \trender() {\r\n> \t\treturn (\r\n> \t\t\t<Html lang=\"en\">\r\n> \t\t\t\t<body>\r\n> \t\t\t\t\t<Main />\r\n> \t\t\t\t\t<NextScript />\r\n> \t\t\t\t</body>\r\n> \t\t\t</Html>\r\n> \t\t);\r\n> \t}\r\n> }\r\n> \r\n> export default InstagramDocument;\r\n> ```\r\n> \r\n> I have copied it from somewhere, I don't remember properly. Also I don't really understand what's going on here.\r\n\r\nUsing this solved the issue for me.",
+      "created_at": "2021-08-30T00:11:42Z"
+    },
+    {
+      "role": "user",
+      "author": "Parth909",
+      "body": "A quick fix to that is to delete the `.next` build folder & restart the server again",
+      "created_at": "2021-09-03T09:56:17Z"
+    },
+    {
+      "role": "user",
+      "author": "jzzfs",
+      "body": "You can always resort to [`suppressHydrationWarning`](https://reactjs.org/docs/dom-elements.html#suppresshydrationwarning). Quoting react docs:\r\n\r\n> If you set `suppressHydrationWarning` to `true`, React will not warn you about mismatches in the attributes and the content of that element. It only works one level deep, and is intended to be used as an escape hatch.\r\n\r\n---\r\n\r\nI recently had an issue w/ decoding a [`blurhash`](https://github.com/woltapp/blurhash/tree/master/TypeScript) to be used in a `next/image`. It turns out, [`node-canvas`](https://www.npmjs.com/package/canvas) (SSR) interprets an `Uint8ClampedArray` slightly differently than the Web API canvas which leads to different `blurDataURL`s.\r\n\r\nLong story short, suppressing the warning did the trick:\r\n```tsx\r\n<Image\r\n    suppressHydrationWarning={true}\r\n   ...\r\n/>\r\n```\r\n",
+      "created_at": "2021-09-07T16:59:09Z"
+    },
+    {
+      "role": "user",
+      "author": "rapaccinim",
+      "body": "> A quick fix to that is to delete the `.next` build folder & restart the server again\r\n\r\nThis worked for me! ",
+      "created_at": "2021-09-07T23:42:57Z"
+    },
+    {
+      "role": "user",
+      "author": "makyinmars",
+      "body": "If you guys are using dark reader, make sure to turn it off. For me it was on and it was giving me that error. Once, I turned off. It didn't give that error.",
+      "created_at": "2021-09-11T03:18:06Z"
+    },
+    {
+      "role": "user",
+      "author": "diatche",
+      "body": "> A quick fix to that is to delete the `.next` build folder & restart the server again\r\n\r\nThis fixed the issue for me, although I would add extra steps:\r\n\r\n1. delete the `.next` build folder\r\n2. close the browser tab\r\n3. restart the server\r\n4. open the browser tab",
+      "created_at": "2021-09-13T02:26:40Z"
+    },
+    {
+      "role": "user",
+      "author": "sebavuye",
+      "body": "This fixed my issue : \r\n\r\n\r\n\r\n```\r\nyarn add --dev babel-plugin-styled-components\r\n```\r\n\r\nThen add this to `.babelrc` file:\r\n```\r\n{\r\n    \"presets\": [\"next/babel\"],\r\n    \"plugins\": [[\"styled-components\", { \"ssr\": true }]]\r\n}\r\n```",
+      "created_at": "2021-09-14T21:07:34Z"
+    },
+    {
+      "role": "user",
+      "author": "pke",
+      "body": "@sebavuye without deleting the .next folder this allone did nothing.",
+      "created_at": "2021-09-15T12:03:56Z"
+    },
+    {
+      "role": "user",
+      "author": "dawnbeen",
+      "body": "After deleting `.next` dir, it worked for me then. But soon, The same happens. \r\n\r\n+Edit\r\n\r\nNow, I have no the error. worked well. \r\nIn my case, all file in `page/anydir/` had this issue. And I used several Layouts.(nested Layouts used with styled-components)\r\n1.  I installed `babel-plugin-styled-components` and `babel-preset-next`.\r\n2.  Then I  deleted `.next` and re-builded.\r\n\r\n",
+      "created_at": "2021-09-20T05:14:21Z"
+    },
+    {
+      "role": "user",
+      "author": "abdullahmujahidali",
+      "body": "Any fix other than deleting .next dir. \r\n\r\nOn production mode is anyone facing this issue?",
+      "created_at": "2021-09-21T05:04:25Z"
+    },
+    {
+      "role": "user",
+      "author": "TKOxff",
+      "body": "In my case, I'm using Material UI 4.x and not using styled-component.\r\nI've been tried every liked comments here but not working..\r\n\r\nFinally the way below has worked for me.\r\n\r\n> Remove the server-side injected CSS.\r\n> https://stackoverflow.com/a/59521406/12697629",
+      "created_at": "2021-09-30T14:51:38Z"
+    },
+    {
+      "role": "user",
+      "author": "crmapache",
+      "body": "> This fixed my issue :\r\n> \r\n> ```\r\n> yarn add --dev babel-plugin-styled-components\r\n> ```\r\n> \r\n> Then add this to `.babelrc` file:\r\n> \r\n> ```\r\n> {\r\n>     \"presets\": [\"next/babel\"],\r\n>     \"plugins\": [[\"styled-components\", { \"ssr\": true }]]\r\n> }\r\n> ```\r\n\r\nThis is helps to me!",
+      "created_at": "2021-10-09T21:37:31Z"
+    },
+    {
+      "role": "user",
+      "author": "sadekujjaman",
+      "body": "I have solved this issue following these steps.\r\n1. Create a file named `.babelrc` in the root directory and configure the `.babelrc` file.\r\n2. delete the .next build folder(It stores some caches).\r\n3. Restart the server.\r\n4. Hot reload the browser.\r\n\r\n`.babelrc` configuration file\r\n```\r\n{\r\n    \"presets\": [\r\n        \"next/babel\"\r\n    ],\r\n    \"plugins\": [\r\n        [\r\n            \"styled-components\",\r\n            {\r\n                \"ssr\": true,\r\n                \"displayName\": true,\r\n                \"preprocess\": false\r\n            }\r\n        ]\r\n    ]\r\n}\r\n```",
+      "created_at": "2021-10-22T11:57:13Z"
+    },
+    {
+      "role": "user",
+      "author": "kameikay",
+      "body": "> I have solved this issue following these steps.\r\n> \r\n> 1. Create a file named `.babelrc` in the root directory and configure the `.babelrc` file.\r\n> 2. delete the .next build folder(It stores some caches).\r\n> 3. Restart the server.\r\n> 4. Hot reload the browser.\r\n> \r\n> `.babelrc` configuration file\r\n> \r\n> ```\r\n> {\r\n>     \"presets\": [\r\n>         \"next/babel\"\r\n>     ],\r\n>     \"plugins\": [\r\n>         [\r\n>             \"styled-components\",\r\n>             {\r\n>                 \"ssr\": true,\r\n>                 \"displayName\": true,\r\n>                 \"preprocess\": false\r\n>             }\r\n>         ]\r\n>     ]\r\n> }\r\n> ```\r\n\r\nThat's the only way to solve my problem... It's unfortunate to see that 2 years later, this issue still opened... Thanks.",
+      "created_at": "2021-10-27T04:58:50Z"
+    },
+    {
+      "role": "user",
+      "author": "FilipeCovas",
+      "body": "> > I have solved this issue following these steps.\r\n> > \r\n> > 1. Create a file named `.babelrc` in the root directory and configure the `.babelrc` file.\r\n> > 2. delete the .next build folder(It stores some caches).\r\n> > 3. Restart the server.\r\n> > 4. Hot reload the browser.\r\n> > \r\n> > `.babelrc` configuration file\r\n> > ```\r\n> > {\r\n> >     \"presets\": [\r\n> >         \"next/babel\"\r\n> >     ],\r\n> >     \"plugins\": [\r\n> >         [\r\n> >             \"styled-components\",\r\n> >             {\r\n> >                 \"ssr\": true,\r\n> >                 \"displayName\": true,\r\n> >                 \"preprocess\": false\r\n> >             }\r\n> >         ]\r\n> >     ]\r\n> > }\r\n> > ```\r\n> \r\n> That's the only way to solve my problem... It's unfortunate to see that 2 years later, this issue still opened... Thanks.\r\n\r\nbut this way you will slow compilations(NextJs 12), because when you create .babelrc next js will change rust swc to babel causing decreasing compilation speed\r\n`Compilation using Rust is 17x faster than Babel and enabled by default using Next.js 12`\r\nhttps://nextjs.org/blog/next-12#faster-builds-and-fast-refresh-with-rust-compiler",
+      "created_at": "2021-11-04T00:03:41Z"
+    },
+    {
+      "role": "user",
+      "author": "op2rules",
+      "body": "Not working yet in 12.0.3 without the babel config",
+      "created_at": "2021-11-05T18:52:09Z"
+    },
+    {
+      "role": "user",
+      "author": "ToledoNicola",
+      "body": "same v12\r\n```react-dom.development.js?ac89:67 Warning: Prop `style` did not match. Server: \"position:absolute;top:0;left:0;bottom:0;right:0;box-sizing:border-box;padding:0;border:none;margin:auto;display:block;width:0;height:0;min-width:100%;max-width:100%;min-height:100%;max-height:100%;object-fit:contain;filter:blur(20px);background-size:contain;background-image:url(\\\"/_next/image?url=%2F_next%2Fstatic%2Fmedia%2Flogo-lettere-nero.96fb6bd8.png&w=8&q=70\\\");background-position:0% 0%\" Client: \"position:absolute;top:0;left:0;bottom:0;right:0;box-sizing:border-box;padding:0;border:none;margin:auto;display:block;width:0;height:0;min-width:100%;max-width:100%;min-height:100%;max-height:100%;object-fit:contain;filter:blur(20px);background-size:contain;background-image:url(\\\"/_next/image?url=%2F_next%2Fstatic%2Fmedia%2Flogo-lettere-bianco.8ebf6dc1.png&w=8&q=70\\\");background-position:0% 0%\"\r\n    at img\r\n    at span```\r\n",
+      "created_at": "2021-11-06T11:55:08Z"
+    },
+    {
+      "role": "user",
+      "author": "simonpeters",
+      "body": "Having the same issue with a fresh next 12 repo and styled components",
+      "created_at": "2021-11-08T14:47:04Z"
+    },
+    {
+      "role": "user",
+      "author": "Amirhosein-hshm",
+      "body": "i have enable swc typescript compiler i dont want to add any babel config because its automatically disabled swc compiler.\r\nhow can i fixed that? without babelify it",
+      "created_at": "2021-11-09T17:26:49Z"
+    },
+    {
+      "role": "user",
+      "author": "justyn-clark",
+      "body": "Same problem here. I want Rust, not Babel. \r\n\r\n```\r\n\"next\": \"^12.0.1\",\r\n\"styled-components\": \"^5.3.3\",\r\n```\r\n\r\n<img width=\"634\" alt=\"Screen Shot 2021-11-11 at 7 18 48 PM\" src=\"https://user-images.githubusercontent.com/11221796/141403319-47a9929c-257d-47c7-bdf1-af63f980c88d.png\">\r\n",
+      "created_at": "2021-11-12T03:21:18Z"
+    },
+    {
+      "role": "user",
+      "author": "lglufiego",
+      "body": "And still happens. It's so freaking annoying",
+      "created_at": "2021-11-12T19:27:45Z"
+    },
+    {
+      "role": "user",
+      "author": "dbehmoaras",
+      "body": "This is still very much an open issue and should not be closed. The proposed fixes only work temporarily and this issue has not been addressed in the latest released despite what the devs have indicated.",
+      "created_at": "2021-11-12T21:05:25Z"
+    },
+    {
+      "role": "user",
+      "author": "hellobrunao",
+      "body": "Hey guys, just reporting that I am facing the same problem. I am not using styled-components, in my case the error happens on `react-grid-system`.\r\nI have deleted the .next folder, closed tab, reopened, and the error stills.\r\n\r\n`react-dom.development.js?ac89:67 Warning: Prop `style` did not match. Server: \"box-sizing:border-box;min-height:1px;position:relative;padding-left:15px;padding-right:15px;width:33.333333333333336%;flex-basis:33.333333333333336%;flex-grow:0;flex-shrink:0;max-width:33.333333333333336%;margin-left:0%;right:auto;left:auto\" Client: \"box-sizing:border-box;min-height:1px;position:relative;padding-left:15px;padding-right:15px;width:8.333333333333334%;flex-basis:8.333333333333334%;flex-grow:0;flex-shrink:0;max-width:8.333333333333334%;margin-left:0%;right:auto;left:auto\"\r\n`\r\nI hope to see a fix for that error from NextJS team and if I find some workaround I'll be happy to drop it here.\r\n\r\n=]\r\n",
+      "created_at": "2021-11-14T18:25:55Z"
+    },
+    {
+      "role": "user",
+      "author": "timneutkens",
+      "body": "@justyn-clark @Amirhosein-hshm @simonpeters\r\nIf you want to use SWC and are using styled-components see https://github.com/vercel/next.js/discussions/30174#discussion-3643870\r\n\r\n> I hope to see a fix for that error from NextJS team and if I find some workaround I'll be happy to drop it here.\r\n\r\nUnfortunately so many other comments have drowned the reply that explains why the warning is shown by React.\r\n\r\nTo clarify again: this is not an issue with Next.js, it's an issue with the specific library that you're using when it is hydrated by React (which is a [feature of React](https://reactjs.org/docs/react-dom.html#hydrate)). In general it's one of these that causes the mismatch on `className`:\r\n- When using Styled Components / Emotion\r\n\t- Not set up for pre-rendering (SSR/SSG). In general this means the app did not follow to example and does not have `pages/_document` and the Babel plugin. The Babel plugin ensures that the generated classnames match up between server/browser.\r\n\t\t- Possible fix for Emotion: https://github.com/vercel/next.js/tree/canary/examples/with-emotion\r\n\t\t- Possible fix for Styled Components: https://github.com/vercel/next.js/tree/canary/examples/with-styled-components\r\n\t\t\t- If you want to leverage Styled Components with SWC there's an experimental flag available now: https://github.com/vercel/next.js/discussions/30174#discussion-3643870\r\n- When using other css-in-js libraries\r\n\t- Similar to Styled Components / Emotion css-in-js libraries generally need configuration specified in their respective examples in the [examples directory](https://github.com/vercel/next.js/tree/canary/examples)\r\n- When using a React library (e.g. the above comment about `react-grid-system`) or in the application's React Components\r\n\t- What we often see is that something similar to the code below is written which then causes a hydration mismatch as the **first render in the browser** has to **match exactly** with what was rendered on the server. Josh Comeau wrote a decent article about hydration which might be useful for you: https://www.joshwcomeau.com/react/the-perils-of-rehydration/. I've included a small example of what code causes a mismatch below:\r\n\t- ```jsx\r\n\t    function MyComponent() {\r\n             // This condition depends on `window` so in the first render of the browser the `color` variable will be different\r\n\t\t\tconst color = typeof window !== 'undefined' ? 'red' : 'blue\r\n            // As color is passed as a prop there is a mismatch between what was rendered server-side vs what was rendered in the first render\r\n\t    \treturn <h1 className={`title ${color}`}>Hello World!</h1>\r\n\t    }\r\n\t    \r\n\t    \r\n\t    // In order to prevent the first render from being different you can use `useEffect` which is only executed in the browser and is executed during hydration:\r\n        import {useEffect, useState} from 'react'\r\n\t    function MyComponent() {\r\n             // The default value is 'blue', it will be used during pre-rendering and the first render in the browser (hydration)\r\n             const [color, setColor] = useState('blue')\r\n             // During hydration `useEffect` is called. `window` is available in `useEffect`. In this case because we know we're in the browser checking for window is not needed. If you need to read something from window that is fine though.\r\n             // By calling `setColor` in `useEffect` a render is triggered after hydrating, this causes the \"browser specific\" value to be available. In this case 'red'.\r\n             useEffect(() => setColor('red'), [])\r\n            // As color is a state passed as a prop there is no mismatch between what was rendered server-side vs what was rendered in the first render. After useEffect runs the color is set to 'red'\r\n\t    \treturn <h1 className={`title ${color}`}>Hello World!</h1>\r\n\t    }\r\n\t    ```\r\n\r\nUnfortunately there is no way to pin these comments and I don't want to lock this thread. We'll have a look at potentially intercepting this particular error coming from React and adding a Next.js docs link to it similar to what we do for errors coming from Next.js itself.",
+      "created_at": "2021-11-15T12:22:21Z"
+    },
+    {
+      "role": "user",
+      "author": "hellobrunao",
+      "body": "Hey @timneutkens ... thank you so much for your quick reply, and sorry not digging a bit more into the older replies, my bad.  \r\n\r\nNow I see the issue regarding hydration, and you are right, I had a condition verifying if `window` was available.\r\n",
+      "created_at": "2021-11-15T17:57:16Z"
+    },
+    {
+      "role": "user",
+      "author": "op2rules",
+      "body": "Awesome, thanks @timneutkens !\r\n\r\nWorking with 12.0.4 and \r\n\r\n\r\n```\r\nmodule.exports = {\r\n    experimental: {\r\n        // Enables the styled-components SWC transform\r\n        styledComponents: true\r\n    }\r\n}\r\n```",
+      "created_at": "2021-11-17T02:28:49Z"
+    },
+    {
+      "role": "user",
+      "author": "timneutkens",
+      "body": "I've had @ijjk work on an error link for this warning, hopefully that will reduce the confusion around why the warning happens and steps to take to fix it in your app 👍: #31519",
+      "created_at": "2021-11-19T13:31:42Z"
+    },
+    {
+      "role": "user",
+      "author": "adielbm",
+      "body": "Thank you @timneutkens & @joshwcomeau (In his article '[The Perils of Rehydration](https://www.joshwcomeau.com/react/the-perils-of-rehydration/)'.), you helped me a lot. ❤\r\nI had the same problem with [**material-ui**](https://github.com/mui-org/material-ui) & Next.js.\r\nThis is the component I created, I wrapped components that need to be rendering on the client side.\r\n```jsx\r\nimport React from \"react\";\r\n\r\nconst ClientOnly = ({ children, ...delegated }) => {\r\n\r\n  const [hasMounted, setHasMounted] = React.useState(false);\r\n\r\n  React.useEffect(() => {\r\n    setHasMounted(true);\r\n  }, []);\r\n\r\n  if (!hasMounted) return null\r\n\r\n  return (\r\n    <React.Fragment {...delegated}>\r\n      {children}\r\n    </React.Fragment>\r\n  );\r\n}\r\n\r\nexport default ClientOnly\r\n```\r\n\r\n```jsx\r\n<ClientOnly>\r\n     <SomeComponnet/>\r\n</ClientOnly>\r\n```",
+      "created_at": "2021-11-23T10:51:54Z"
+    },
+    {
+      "role": "user",
+      "author": "GunterJameda",
+      "body": "> Thank you @timneutkens & @joshwcomeau (In his article '[The Perils of Rehydration](https://www.joshwcomeau.com/react/the-perils-of-rehydration/)'.), you helped me a lot. ❤ I had the same problem with [**material-ui**](https://github.com/mui-org/material-ui) & Next.js. This is the component I created, I wrapped components that need to be rendering on the client side.\r\n> \r\n> ```js\r\n> import React from \"react\";\r\n> \r\n> const ClientOnly = ({ children, ...delegated }) => {\r\n> \r\n>   const [hasMounted, setHasMounted] = React.useState(false);\r\n> \r\n>   React.useEffect(() => {\r\n>     setHasMounted(true);\r\n>   }, []);\r\n> \r\n>   if (!hasMounted) return null\r\n> \r\n>   return (\r\n>     <React.Fragment {...delegated}>\r\n>       {children}\r\n>     </React.Fragment>\r\n>   );\r\n> }\r\n> \r\n> export default ClientOnly\r\n> ```\r\n> \r\n> ```js\r\n> <ClientOnly>\r\n>      <SomeComponnet/>\r\n> </ClientOnly>\r\n> ```\r\n\r\nFWIW, I tried a lot of solutions layed out in this thread and this was the only one that worked. I'm using NextJS 12 with Material UI 5",
+      "created_at": "2021-12-06T19:07:54Z"
+    },
+    {
+      "role": "user",
+      "author": "dbehmoaras",
+      "body": "> > Thank you @timneutkens & @joshwcomeau (In his article '[The Perils of Rehydration](https://www.joshwcomeau.com/react/the-perils-of-rehydration/)'.), you helped me a lot. ❤ I had the same problem with [**material-ui**](https://github.com/mui-org/material-ui) & Next.js. This is the component I created, I wrapped components that need to be rendering on the client side.\r\n> > ```js\r\n> > import React from \"react\";\r\n> > \r\n> > const ClientOnly = ({ children, ...delegated }) => {\r\n> > \r\n> >   const [hasMounted, setHasMounted] = React.useState(false);\r\n> > \r\n> >   React.useEffect(() => {\r\n> >     setHasMounted(true);\r\n> >   }, []);\r\n> > \r\n> >   if (!hasMounted) return null\r\n> > \r\n> >   return (\r\n> >     <React.Fragment {...delegated}>\r\n> >       {children}\r\n> >     </React.Fragment>\r\n> >   );\r\n> > }\r\n> > \r\n> > export default ClientOnly\r\n> > ```\r\n> > \r\n> > \r\n> >     \r\n> >       \r\n> >     \r\n> > \r\n> >       \r\n> >     \r\n> > \r\n> >     \r\n> >   \r\n> > ```js\r\n> > <ClientOnly>\r\n> >      <SomeComponnet/>\r\n> > </ClientOnly>\r\n> > ```\r\n> \r\n> FWIW, I tried a lot of solutions layed out in this thread and this was the only one that worked. I'm using NextJS 12 with Material UI 5\r\n\r\nThis is a good solution when running in dev, but it's unfortunate to need to include when the issue doesn't present itself when the bundle is built.",
+      "created_at": "2021-12-23T17:15:35Z"
+    },
+    {
+      "role": "user",
+      "author": "justice-sh",
+      "body": "Hey guys, I saw this article on Medium and fixed this. Like, follow the steps, copy and paste the code and you're golden.\r\n\r\n[https://binyamin.medium.com/solving-the-styled-components-warning-in-next-js-with-babel-83080e45a0ff](https://binyamin.medium.com/solving-the-styled-components-warning-in-next-js-with-babel-83080e45a0ff)",
+      "created_at": "2021-12-30T15:07:43Z"
+    },
+    {
+      "role": "user",
+      "author": "yuki16bit",
+      "body": "Hi guys, I've tried so many solutions in this thread these couple few days, still get this warning.\r\nAfter some experiments, I confirmed that warnings are all came from:\r\n\r\n1. my custom styled [framer-motion](https://github.com/framer/motion) components\r\n2. component which style will change between dark / light mode.\r\n\r\nSo I changed the way to import those components by using [next/dynamic](https://nextjs.org/docs/advanced-features/dynamic-import) (with No SSR) and finally fixed this :D!\r\n\r\nexample:\r\n```jsx\r\n// /pages/index.js\r\n\r\nimport dynamic from 'next/dynamic'\r\n\r\nconst CircleButtonWithNoSSR = dynamic(() => import('../components/Buttons/CircleButton'), { ssr: false })\r\n\r\nconst HomePage = () => {\r\n  return (\r\n    <p>Home Page Title</p>\r\n    <CircleButtonWithNoSSR color='gold' whileHover={{ scale: 1.2 }} />\r\n  )\r\n}\r\n\r\nexport default HomePage\r\n```\r\n```jsx\r\n// /components/buttons/CircleButton.js\r\n\r\nimport styled from 'styled-components'\r\nimport { motion } from 'framer-motion'\r\n\r\nconst CircleButton = styled(motion.button)`\r\n  color: ${({ theme, color }) => color ? color : theme.color.primary};\r\n`\r\n\r\nexport default CircleButton\r\n```\r\nUpdate:  After a day, I kind of restructured my code like this 😄 \r\n```jsx\r\n// /components/NoSsr.js\r\n\r\nimport dynamic from 'next/dynamic'\r\n\r\nconst NoSsr = ({ children }) => <>{children}</>\r\n\r\nexport default dynamic(() => Promise.resolve(NoSsr), { ssr: false })\r\n```\r\n```jsx\r\n// /pages/index.js\r\n\r\nimport NoSsr from '../components/NoSsr'\r\nimport CircleButton from '../components/buttons/CircleButton'\r\n\r\nconst HomePage = () => {\r\n  return (\r\n    <>\r\n      <p>Home Page Title</p>\r\n      <NoSsr>\r\n        <CircleButton color='gold' whileHover={{ scale: 1.2 }} />\r\n      </NoSsr>\r\n    </>\r\n  )\r\n}\r\n```",
+      "created_at": "2022-01-01T10:32:41Z"
+    },
+    {
+      "role": "user",
+      "author": "TamPhilip",
+      "body": "> Hi guys, I've tried so many solutions in this thread these couple few days, still get this warning. After some experiments, I confirmed that warnings are all came from my custom styled [framer-motion](https://github.com/framer/motion) components.\r\n> \r\n> So I changed the way to import those motion components by using [next/dynamic](https://nextjs.org/docs/advanced-features/dynamic-import) (with No SSR) and finally fixed this :D!\r\n> \r\n> example:\r\n> \r\n> ```js\r\n> // /pages/index.js\r\n> \r\n> import dynamic from 'next/dynamic'\r\n> \r\n> const CircleButtonWithNoSSR = dynamic(() => import('../components/Buttons/CircleButton'), { ssr: false })\r\n> \r\n> const HomePage = () => {\r\n>   return (\r\n>     <p>Home Page Title</p>\r\n>     <CircleButtonWithNoSSR color='gold' whileHover={{ scale: 1.2 }} />\r\n>   )\r\n> }\r\n> \r\n> export default HomePage\r\n> ```\r\n> \r\n> ```js\r\n> // /components/Buttons/CircleButton.js\r\n> \r\n> import styled from 'styled-components'\r\n> import { motion } from 'framer-motion'\r\n> \r\n> const CircleButton = styled(motion.button)`\r\n>   color: ${({ color }) => color ? color : 'red'};\r\n> `\r\n> \r\n> export default CircleButton\r\n> ```\r\n\r\nThank you so much! This fix worked for '@mui/styles/styled' too! ",
+      "created_at": "2022-01-01T11:28:39Z"
+    },
+    {
+      "role": "user",
+      "author": "milad-afkhami",
+      "body": "> Hi guys, I've tried so many solutions in this thread these couple few days, still get this warning. After some experiments, I confirmed that warnings are all came from:\r\n> \r\n> 1. my custom styled [framer-motion](https://github.com/framer/motion) components\r\n> 2. component which style will change between dark / light mode.\r\n> \r\n> So I changed the way to import those components by using [next/dynamic](https://nextjs.org/docs/advanced-features/dynamic-import) (with No SSR) and finally fixed this :D!\r\n> \r\n> example:\r\n> \r\n> ```js\r\n> // /pages/index.js\r\n> \r\n> import dynamic from 'next/dynamic'\r\n> \r\n> const CircleButtonWithNoSSR = dynamic(() => import('../components/Buttons/CircleButton'), { ssr: false })\r\n> \r\n> const HomePage = () => {\r\n>   return (\r\n>     <p>Home Page Title</p>\r\n>     <CircleButtonWithNoSSR color='gold' whileHover={{ scale: 1.2 }} />\r\n>   )\r\n> }\r\n> \r\n> export default HomePage\r\n> ```\r\n> \r\n> ```js\r\n> // /components/buttons/CircleButton.js\r\n> \r\n> import styled from 'styled-components'\r\n> import { motion } from 'framer-motion'\r\n> \r\n> const CircleButton = styled(motion.button)`\r\n>   color: ${({ theme, color }) => color ? color : theme.color.primary};\r\n> `\r\n> \r\n> export default CircleButton\r\n> ```\r\n> \r\n> Update: After a day, I kind of restructured my code like this 😄\r\n> \r\n> ```js\r\n> // /components/NoSsr.js\r\n> \r\n> import dynamic from 'next/dynamic'\r\n> \r\n> const NoSsr = ({ children }) => <>{children}</>\r\n> \r\n> export default dynamic(() => Promise.resolve(NoSsr), { ssr: false })\r\n> ```\r\n> \r\n> ```js\r\n> // /pages/index.js\r\n> \r\n> import NoSsr from '../components/NoSsr'\r\n> import CircleButton from '../components/buttons/CircleButton'\r\n> \r\n> const HomePage = () => {\r\n>   return (\r\n>     <>\r\n>       <p>Home Page Title</p>\r\n>       <NoSsr>\r\n>         <CircleButton color='gold' whileHover={{ scale: 1.2 }} />\r\n>       </NoSsr>\r\n>     </>\r\n>   )\r\n> }\r\n> ```\r\n\r\nactually next.js has an undocumented `noSSR` function in \"next/dynamic\",\r\ndoes anyone knows how to use it? I couldn't find it in docs.",
+      "created_at": "2022-01-30T11:11:12Z"
+    },
+    {
+      "role": "user",
+      "author": "applemate",
+      "body": "error:  Prop `className` did not match. Server: \"sc-iNGGcK fYiZeZ\" Client: \"sc-bdvvtL kZtKWc\"\r\n\r\n```\r\n\t\"dependencies\": {\r\n\t\t\"@types/styled-components\": \"^5.1.22\",\r\n\t\t\"@zeit/next-sass\": \"^1.0.1\",\r\n\t\t\"next\": \"^12.0.10\",\r\n\t\t\"node-sass\": \"^4.14.1\",\r\n\t\t\"query-string\": \"^7.0.1\",\r\n\t\t\"react\": \"17.0.2\",\r\n\t\t\"react-dom\": \"17.0.2\",\r\n\t\t\"recoil\": \"^0.4.1\",\r\n\t\t\"sass\": \"^1.42.1\",\r\n\t\t\"styled-components\": \"^5.3.3\"\r\n\t},\r\n\t\"devDependencies\": {\r\n\t\t\"@types/node\": \"16.11.6\",\r\n\t\t\"@types/react\": \"17.0.34\",\r\n\t\t\"eslint\": \"7.32.0\",\r\n\t\t\"eslint-config-next\": \"12.0.3\",\r\n\t\t\"typescript\": \"4.4.4\"\r\n\t}\r\n```\r\n\r\n```\r\n/** @type {import('next').NextConfig} */\r\nmodule.exports = {\r\n\treactStrictMode: true,\r\n\tstyledComponents: true,\r\n}\r\n```\r\n\r\n\r\nI updated the to next 12.0.10, still got the issue\r\n\r\n",
+      "created_at": "2022-02-06T15:26:54Z"
+    },
+    {
+      "role": "user",
+      "author": "belkocik",
+      "body": "For all: check your React Components if you import them correctly.",
+      "created_at": "2022-02-07T12:27:55Z"
+    }
+  ]
+}

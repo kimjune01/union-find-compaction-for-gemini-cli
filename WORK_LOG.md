@@ -703,4 +703,145 @@ Clean rewrite of PREREGISTRATION.md after 3 rounds of codex review.
 - Don't touch `🔒Maintainers only` issues
 - Don't skip license headers on new files
 
-**Commit:** [pending]
+**Commit:** `a2fa0e76` — contributor policies documented, issue #22877 filed
+
+---
+
+## Step 8: Implementation (17:00 — 2026-03-17)
+
+Implemented the full union-find context compaction system in `gemini-cli` on branch `feat/union-find-compaction`. One-shot implementation — clean run, no retries.
+
+### TDD order followed:
+1. Created branch `feat/union-find-compaction`
+2. `contextWindow.ts` + tests (31 tests) — Forest, ContextWindow, cosine similarity, findClosestPair
+3. `embeddingService.ts` + tests (8 tests) — TFIDFEmbedder with incremental vocabulary
+4. `clusterSummarizer.ts` + tests (4 tests) — LLM-based ClusterSummarizer via BaseLlmClient
+5. `chatCompressionService.ts` modifications + tests (4 new tests) — dual-path dispatch
+6. `config.ts` + `flagNames.ts` — `getCompressionStrategy()` and `COMPRESSION_STRATEGY` experiment flag
+
+### Files created:
+| File | Lines | Tests |
+|------|-------|-------|
+| `packages/core/src/services/contextWindow.ts` | ~310 | 31 |
+| `packages/core/src/services/embeddingService.ts` | ~80 | 8 |
+| `packages/core/src/services/clusterSummarizer.ts` | ~55 | 4 |
+| `packages/core/src/services/contextWindow.test.ts` | ~330 | — |
+| `packages/core/src/services/embeddingService.test.ts` | ~95 | — |
+| `packages/core/src/services/clusterSummarizer.test.ts` | ~90 | — |
+
+### Files modified:
+| File | Change |
+|------|--------|
+| `chatCompressionService.ts` | Renamed `compress()` → `compressWithFlat()`, added `compactWithUnionFind()`, new `compress()` dispatches by strategy |
+| `chatCompressionService.test.ts` | +4 integration tests for dual-path dispatch + `getCompressionStrategy` mock |
+| `config.ts` | Added `getCompressionStrategy()` method |
+| `flagNames.ts` | Added `COMPRESSION_STRATEGY: 45768880` |
+
+### Verification:
+- 75/75 tests pass across 4 test files
+- 0 type errors (`tsc --noEmit`)
+- 0 lint errors (pre-commit eslint `--max-warnings 0` passed)
+- Existing flat compression tests unchanged and passing (backward compatible)
+- Feature-flagged behind `'union-find'` strategy, defaults to `'flat'`
+
+### Hiccups:
+- Pre-commit hook caught 2 unwaited promises in `contextWindow.test.ts` (`@typescript-eslint/no-floating-promises`) — fixed, second commit succeeded
+- `new Array(n).fill(0)` returns `any[]` in TS — used `new Array<number>(n).fill(0)` to satisfy `@typescript-eslint/no-unsafe-return`
+- Unused `_summarizer` field in ContextWindow and unused `abortSignal` param flagged by tsc — removed/prefixed
+
+### Key design choices made during implementation:
+- `Forest.union()` is async (calls summarizer) — all downstream code awaits
+- `ContextWindow.append()` is async for same reason — graduation may trigger LLM summarization
+- Cold zone rendered as `<context_clusters>` XML block (mirrors existing `<state_snapshot>` pattern)
+- Hot zone maps back to original `Content[]` objects from truncated history (preserves function calls/responses)
+- `ClusterSummarizer` falls back to joining messages on LLM error (no crash path)
+
+**Commit:** `79a4aedea` — feat(core): add union-find context compaction with feature flag
+
+---
+
+## Step 9: Preregistered Experiment (01:45 — 2026-03-18)
+
+### API Key Mishap (01:48)
+- Pasted Gemini API key directly into chat by mistake
+- Key: `AIzaSyBi...` (general-intelligence project)
+- **Action needed:** Rotate this key after experiment completes
+- Lesson: Use environment variables or `.env` files, never paste keys into chat
+
+### Experiment Setup (01:48)
+- **Evaluation model:** `gemini-3.1-flash-lite-preview` (matches preregistration: "Gemini 3.1 Flash Lite")
+- **Data:** 12 real GitHub issue conversations collected (209-599 messages each)
+  - microsoft/vscode, facebook/react, microsoft/TypeScript, vercel/next.js, nodejs/node, rust-lang/rust, flutter/flutter
+- **Machine:** Apple M4 Pro, 48GB RAM, macOS Darwin 25.3.0, Node.js v22.21.1
+- **Branch:** `feat/union-find-compaction` (commit `79a4aedea`)
+
+### H2 Latency (Preliminary — Mock Summarizer) (01:47)
+- Ran 200-message benchmark with mock summarizer (near-zero latency)
+- **Local computation p95: 0.176ms** — well under 100ms
+- **Critical finding:** 80% of appends trigger LLM summarizer calls (160/200)
+  - 94.1% of graduations trigger merges
+  - With real LLM, p95 would be dominated by API latency (500ms-5s typical)
+- Saved: `experiment/performance/union-find-latencies.csv`, `environment.md`
+
+### Full Experiment Run (01:55 — 02:38)
+
+Ran all three hypotheses with real Gemini 3.1 Flash Lite API calls on 12 GitHub issue conversations (120 messages each).
+
+**Duration:** 43.5 minutes | **API calls:** 1,380 | **Tokens:** 4.4M
+
+#### H1 Recall Results
+- **Flat recall:** 20/96 (20.8%)
+- **Union-find recall:** 27/96 (28.1%)
+- **Difference:** +7.3pp (exceeds 5pp threshold)
+- **McNemar's p-value:** 0.169 (NOT significant at α=0.05)
+- **Verdict: FAIL** — effect exists but not statistically significant
+- Union-find wins on 8/12 conversations, ties 2, loses 2
+- Both systems have low absolute recall — GitHub issues lose most specifics when compressed
+
+#### H2 Latency Results
+- **Overall p95:** 3,416ms (vs 100ms criterion)
+- **With merge p95:** 3,622ms (66.7% of appends)
+- **Without merge p95:** 0.2ms (local computation negligible)
+- **Verdict: FAIL** — synchronous LLM calls make every merge blocking
+- Root cause: `append()` → `_graduate()` → `union()` → `summarize()` all awaited synchronously
+- 66.7% of appends trigger real LLM calls because maxColdClusters=10 forces merges after msg ~40
+
+#### H3 Cost Results
+- **Flat:** 24 calls, 143K tokens
+- **Union-find:** 960 calls, 3.8M tokens
+- **Ratio:** 26.6x (vs 2x criterion)
+- **Verdict: FAIL** — O(n²) cost from re-summarizing entire clusters on each merge
+- Preregistration estimated ~10 calls/conversation; actual was 80 calls/conversation
+
+### Tuning Assessment (02:38)
+All three failures are architectural, not parametric:
+- H1: Sample power issue, not clustering parameter issue
+- H2: Synchronous design (async would be architectural change)
+- H3: Full re-summarization on merge (incremental would be architectural change)
+
+**Decision: No tuning attempted. Accept results as "Not supported."**
+
+### Stopping Rule Triggered
+Per preregistration: "Stop if H1 AND H2 both fail" — both conditions met.
+Also: "Stop if cost >3x" — 26.6x > 3x.
+
+**Recommendation: Stay with flat compression.**
+
+### Key Insights
+1. **Merge frequency underestimated:** Expected ~10 merges, got ~80 per 120 messages
+2. **Re-summarization creates quadratic cost:** Each merge reads ALL cluster members
+3. **Synchronous design blocks on every merge:** 66.7% of appends are blocking LLM calls
+4. **Recall signal is real (+7.3pp):** Clustered compression preserves more facts, but the cost is unacceptable
+5. **What's needed:** Async graduation + incremental summarization + smarter merging = new architecture
+
+### Files Created
+- `RESULTS.md` — Full experiment results with analysis
+- `experiment/results.json` — Structured data
+- `experiment/run-all-hypotheses.ts` — Experiment harness
+- `experiment/performance/h2-latency-benchmark.ts` — Mock summarizer benchmark
+- `experiment/performance/union-find-latencies.csv` — Mock latencies
+- `experiment/performance/union-find-real-latencies.csv` — Real API latencies
+- `experiment/performance/environment.md` — Machine specs
+- `experiment/quality-test/conversations/conv_01.json` through `conv_12.json` — Source data
+- `experiment/quality-test/h1-recall-benchmark.ts` — Structural recall benchmark
+- `experiment/cost/h3-cost-analysis.ts` — Token estimation script
