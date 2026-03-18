@@ -19,6 +19,8 @@ Preregistered experiment on 12 real GitHub issue conversations (120 messages eac
 
 Raw data: [`experiment/v2/results-v2.json`](experiment/v2/results-v2.json) | Latency CSVs: [`experiment/v2/performance/`](experiment/v2/performance/)
 
+**Before merging:** These results use Flash Lite as the eval judge. The recall hypothesis (H1) needs validation with Gemini 3 Pro as the summarizer to confirm the signal holds with the production model. The experiment harness is ready to rerun: [`experiment/v2/run-v2-experiment.ts`](experiment/v2/run-v2-experiment.ts).
+
 ## How It Works
 
 ```
