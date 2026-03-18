@@ -129,9 +129,17 @@ On each message:
 
 ## License
 
-This specification and documentation: MIT (see [LICENSE](LICENSE))
+**Dual licensing** to protect methodology while enabling friction-free implementation:
 
-Implementation integrates with gemini-cli (Apache 2.0).
+- **Specification and documentation** (all `.md` files): [CC BY-SA 4.0](LICENSE-SPEC.md)
+  - Ensures derived methodologies remain open and improvements flow back to the community
+  - Attribution and share-alike required for derived specifications
+
+- **Code implementations**: [Apache 2.0](LICENSE-CODE.md)
+  - Matches gemini-cli's license (no integration friction)
+  - Permissive for commercial use, clear patent grant
+
+**Why dual licensing?** The CC BY-SA protects the *methodology* (derived specs must be shared), while Apache 2.0 keeps *implementations* permissive (matches gemini-cli, no barriers to adoption).
 
 ## Contributing
 

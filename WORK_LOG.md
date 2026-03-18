@@ -409,3 +409,31 @@ WORK_LOG.md                   (this file)
 ~~4. How to handle previous `<state_snapshot>` integration?~~ → Existing stay flat (safe migration)
 ~~5. Model routing for cluster summarization vs full snapshot?~~ → Reuse chat-compression-3-pro
 ~~6. Backward compatibility during transition?~~ → Feature flag, no forced migration
+
+### Dual Licensing Structure (17:23)
+
+**Decision:** Switch from MIT to dual licensing
+
+**Rationale:**
+- CC BY-SA 4.0 protects the methodology (derived specs must share-alike)
+- Apache 2.0 for code (matches gemini-cli, no integration friction)
+- Clear separation: documentation vs implementation have appropriate licenses
+- Precedent: Many projects use CC for docs, permissive for code (Rust docs are CC-BY)
+
+**Files created:**
+1. **LICENSE-SPEC.md** (CC BY-SA 4.0)
+   - Covers all `.md` files
+   - Ensures methodology improvements flow back to community
+   - Attribution and share-alike required for derived specifications
+
+2. **LICENSE-CODE.md** (Apache 2.0)
+   - Covers future implementations
+   - Matches gemini-cli licensing
+   - Clear patent grant, permissive for commercial use
+
+3. **README.md updated**
+   - Replaced "MIT (see LICENSE)" section
+   - Added explanation of dual licensing rationale
+   - Why: Protects methodology while enabling friction-free implementation
+
+**Commit:** [pending]
