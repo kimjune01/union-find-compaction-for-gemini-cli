@@ -561,4 +561,38 @@ WORK_LOG.md                   (this file)
 - Tight preregistration where it matters (code claims)
 - Loose documentation where it doesn't (development process)
 
-**Commit:** [pending - will ask codex for review first]
+**Commit:** b3d447f
+
+### Codex Review #2 - Reframed Preregistration (18:05)
+
+**Asked codex to review reframed version**
+
+**6 Critical Issues Identified:**
+
+1. **Construct validity (BIGGEST BLOCKER)**: Claims "improves gemini-cli" but only tests 10 synthetic conversations with 50 planted facts. Doesn't test real CLI usage. Need to narrow claim or use real data.
+
+2. **Implementation not frozen**: "Test feedback allowed" + "iterate on code" means intervention can change before measurement. Preregistering outcomes while leaving intervention underdetermined.
+
+3. **"Parameter changes" are redesigns**: TF-IDF→dense embeddings or sync→async are new systems, not parameters. Fixed Tuning Policy caps count but not scope.
+
+4. **H1 underpowered**: 50 facts, McNemar p<0.05 + ≥5pp likely unstable. No unit of analysis, scoring rubric, or power calculation.
+
+5. **Baselines not comparable**: H2 measures union-find but assumes flat "20-30s". H3 uses hardcoded assumptions vs real execution counts.
+
+6. **Overclaiming**: "Strictly better", "superior" too strong for this study design.
+
+**Assessment:**
+- Focus: ✅ Correct
+- Rigor: ⚠️ Improved but not enough
+- H4: ✅ Appropriate
+- Ready?: ❌ **BLOCKED** by #1, #2, #4, #5
+
+**Skeptical reviewer summary:** "Small synthetic benchmark with semi-fluid intervention and semi-fluid baselines - 'confirmatory' label is overstated."
+
+**Next steps:**
+1. Use publicly available coding data (not synthetic) - addresses #1
+2. Use Flash 3.1 Lite for experiment (budget constraint) - document limitation
+3. Freeze implementation artifact before confirmatory run - addresses #2
+4. Specify exact scoring/baseline measurement - addresses #4, #5
+
+**Commit:** [pending]
