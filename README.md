@@ -6,6 +6,8 @@ Alternative to flat summarization that is **cheaper** (0.79x tokens), **non-bloc
 
 **Issue:** [google-gemini/gemini-cli#22877](https://github.com/google-gemini/gemini-cli/issues/22877)
 
+**Write-up:** [Zero Comments](https://june.kim/zero-comments)
+
 ## Results
 
 Preregistered experiment on 12 real GitHub issue conversations (120 messages each), evaluated with Gemini 3.1 Flash Lite.
