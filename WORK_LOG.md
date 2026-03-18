@@ -1018,4 +1018,28 @@ Updated lines 42-65 to match overlap design:
 
 Deleted stale tasks #1-#3 (predated overlap design). Created fresh tasks #4-#7 for v2 implementation.
 
-### v2 TDD Implementation Started
+### v2 TDD Implementation Complete
+
+**Tests written first (red):** 45 tests covering:
+- Forest: sync union, no summarizer calls, _dirtyInputs tracking, isDirty/dirtyRoots, resolveDirty batch summarization, clean summary + new raw messages integration, cluster-to-cluster summary merging
+- ContextWindow: sync append, overlap window (graduateAt/evictAt), eviction, never-call-summarizer during append/render, resolveDirty, query-based retrieval
+
+**Implementation (green):** Rewrote contextWindow.ts:
+- Forest._dirtyInputs: Map<number, string[]> — tracks what each dirty cluster needs to pass to summarizer
+- Forest.union() is synchronous — collects representations of both clusters into _dirtyInputs, no LLM calls
+- Forest.resolveDirty() — batch-summarizes all dirty clusters, one LLM call per dirty root
+- ContextWindow uses graduateAt/evictAt with _graduatedIndex tracking
+- append() pushes, graduates (ungrad > graduateAt), evicts (hot > evictAt)
+
+**chatCompressionService updated:**
+- Constants: UNION_FIND_HOT_SIZE → UNION_FIND_GRADUATE_AT (26) + UNION_FIND_EVICT_AT (30)
+- Removed `await` from contextWindow.append() (now synchronous)
+- Added `await contextWindow.resolveDirty()` after render
+
+**Verification:**
+- 89/89 tests pass across 4 test files
+- 0 type errors (tsc --noEmit)
+- Pre-commit hooks pass (prettier + eslint --max-warnings 0)
+- Existing flat compression tests unchanged and passing
+
+**Commit:** `b9a854c57` — feat(core): v2 union-find with overlap window and deferred summarization
