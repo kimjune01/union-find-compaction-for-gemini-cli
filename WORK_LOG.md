@@ -941,3 +941,24 @@ Added 5 implementation warnings to `transformation-design.md` based on the two c
 - Judge reliability — LLM-as-judge noise acknowledged, no human spot-checks budgeted
 
 **File updated:** `PREREGISTRATION-V2.md`
+
+### Over-Merging Problem Identified
+
+**Problem:** v1 results showed 94.1% of graduations triggered merges (960/1,080). With `hotSize=30` and `maxColdClusters=10`, after message 40 every graduation forces a merge — 80 merges for 90 graduated messages. This is structural, not a threshold issue.
+
+**Impact on v2 (first draft):** The prereg specified pairwise summary replay at render time (`summarize([summaryA, summaryB])` for each merge). This would replay 80 merges at render → 80 LLM calls → same cost as v1, just deferred.
+
+**Fix — batch summarization at render time:** Instead of replaying the merge tree, render() makes **one** LLM call per dirty cluster:
+- Collect the cluster's last clean summary + all raw messages added since
+- `summarize([clean_summary, ...new_raw_messages])` → 1 call
+- 10 dirty clusters → 10 LLM calls total (not 80)
+- Each raw message appears in exactly one summarization call → O(n) total
+
+**Why this isn't v1's bug:** v1 re-read ALL members on every merge (O(n²)). Batch render reads each message once total (O(n)). The structural merges between renders are free (no LLM calls).
+
+**v2 cost estimate with batch render:**
+- 10 calls per conversation × ~1000 tokens input per call (summary + ~9 messages) × ~150 tokens output = ~11,500 tokens
+- Flat: ~12,000 tokens per conversation
+- Ratio: ~1x — well within 2x criterion
+
+**Prereg updated:** Changed from pairwise replay to batch summarization. Added tracking of new-since-last-summary members per cluster.

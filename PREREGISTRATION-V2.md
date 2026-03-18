@@ -40,16 +40,24 @@ Four exploratory hypotheses (H1-H4) test the code improvements. Results are repo
 **Baseline:** Flat compression rerun contemporaneously in same environment (not reusing v1 flat results)
 
 **v2 architectural changes (vs v1):**
-1. `Forest.union()` merges two root summaries (O(1) per merge), not all member raw texts (O(members) per merge)
-2. `ContextWindow.append()` is synchronous (no LLM calls) — summarization deferred to `render()` time via dirty-flag mechanism
+1. `Forest.union()` is synchronous — structural merge only (parent pointers, children, centroids), no LLM calls. Marks merged cluster as `_dirty`.
+2. `ContextWindow.append()` is synchronous — no LLM calls. Graduation triggers structural `union()` only.
+3. `render()` resolves dirty clusters via **batch summarization** — one LLM call per dirty cluster, not one per merge. This addresses the over-merging problem (v1: 80 merges → 80 LLM calls; v2: 80 structural merges → ~10 LLM calls at render time).
 
-**Deferred summarization operational spec:**
-- `union()` is synchronous: structural merge only (parent pointers, children, centroids). Marks merged cluster as `_dirty`.
-- For singletons (no prior summary), the raw message content serves as the "summary."
-- `render()` resolves all dirty clusters before returning: for each dirty root, calls `summarizer.summarize([summaryA, summaryB])` with the two pre-merge root summaries as input. Render blocks until all dirty summaries are resolved.
-- Multiple appends between renders batch dirty clusters. One render call resolves all pending dirty clusters.
+**Deferred batch summarization operational spec:**
+- `union()` is synchronous: structural merge only. Marks merged cluster as `_dirty`. Tracks which members are new since the last clean summary.
+- For singletons (no prior summary), the raw message content is the "summary."
+- `render()` resolves all dirty clusters before returning. For each dirty root:
+  - Collects the cluster's **last clean summary** (if any) plus **all raw messages added since that summary was generated**
+  - Makes **one** `summarizer.summarize([clean_summary, ...new_raw_messages])` call
+  - Each raw message appears in exactly one summarization call → O(n) total cost
+  - This handles both singleton absorption and cluster-to-cluster merges in one batch
+- Multiple structural merges between renders are batched. One render resolves all pending dirty clusters.
 - No stale summaries in rendered output: `render()` always returns fully-resolved summaries.
 - No concurrent append/render: sequential single-threaded execution assumed (matches v1 and gemini-cli architecture).
+
+**Why batch, not pairwise replay:**
+v1 hit 80 merges for 120 messages (every graduation after msg 40 triggers a merge due to hard cap). Pairwise replay at render time would still produce 80 LLM calls. Batch summarization produces ~10 calls (one per dirty cluster). The structural merges are free — only the final summary matters.
 
 **Render protocol (frozen for H2/H3/H4 measurement):**
 - `render()` is called once after all messages are appended (end-of-conversation render).
