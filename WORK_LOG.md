@@ -454,4 +454,75 @@ WORK_LOG.md                   (this file)
 
 **Why document this:** Shows the intellectual lineage - not invented in vacuum, but built on accumulated insights from previous work
 
+**Commit:** f1a323e
+
+### Preregistration for Implementation Experiment (17:45)
+
+**Decision:** Create preregistration before attempting implementation to prevent p-hacking and HARKing
+
+**File:** `PREREGISTRATION.md` (360 lines)
+
+**Purpose:** Establish credibility by precommitting to:
+- Hypotheses (what we expect)
+- Success criteria (how we measure)
+- Decision rules (what we do if X happens)
+- Stopping rules (when to give up)
+
+**Four hypotheses preregistered:**
+
+1. **H1: One-Shot Implementation (Primary)**
+   - Can LLM implement from prose alone without debugging?
+   - Success: All tests pass, no manual fixes
+   - Failure: Logic errors, missing edge cases, misinterpretation
+   - Decision: Max 3 iterations, then document limitation
+
+2. **H2: Recall Improvement (Quality)**
+   - Union-find recall ≥ flat + 5pp
+   - Success: McNemar's test p<0.05, improvement ≥5pp
+   - Failure: No difference or regression
+   - Decision: Tune (embeddings, threshold), then document trade-offs
+
+3. **H3: Non-Blocking UX (Performance)**
+   - Append latency p95 < 100ms
+   - Success: No spinner needed, non-blocking UX
+   - Failure: Latency > 100ms
+   - Decision: Optimize, accept trade-off if 100ms-500ms
+
+4. **H4: Cost Comparable (Economics)**
+   - Total cost ≤ 2x flat
+   - Success: Within 2x (preferably 1.2x)
+   - Failure: Cost > 2x
+   - Decision: Tune, document premium feature if >2x
+
+**Decision tree:** 6 scenarios (all pass, H1 fails, H2 fails, H3 fails, H4 fails, multiple failures)
+- Each scenario has clear action plan
+- Honest reporting required for all outcomes
+
+**Data collection plan:**
+- Implementation: prompt, generated code, test results, fixes
+- Quality: 10 conversations, planted facts, recall measurement
+- Performance: 200-message benchmark, latency distribution
+- Cost: token tracking for both strategies
+
+**Stopping rules:**
+- Max 3 iterations for H1
+- Give up if H2 AND H3 both fail
+- Give up if cost >3x
+- Give up if design fundamentally incompatible
+
+**Commitment:**
+- No cherry-picking results
+- Follow preregistered criteria
+- Acknowledge limitations honestly
+- No hypothesis changes after results
+- Transparent iteration documentation
+
+**Why this matters:**
+- Bold claim requires rigorous validation
+- Preregistration demonstrates intellectual honesty
+- Prevents accusations of massaging results
+- Success = following process honestly, not perfect results
+
+**Checkpoint:** ✅ **Hypotheses locked in** - Cannot modify after implementation begins
+
 **Commit:** [pending]
