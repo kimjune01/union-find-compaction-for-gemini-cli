@@ -1093,3 +1093,31 @@ From PREREGISTRATION-V2.md decision rules:
 - H3 passed with room to spare (0.79x vs 2.0x threshold)
 
 **Assessment:** The v2 architecture validates the performance and cost hypotheses conclusively. The recall signal is positive but needs a larger sample size (more conversations, more questions per conversation) to reach significance. The feature is worth keeping behind the experiment flag for further investigation.
+
+### Issue Submission and Fork Setup
+
+**Date:** 2026-03-18
+
+Submitted feature proposal as [google-gemini/gemini-cli#22877](https://github.com/google-gemini/gemini-cli/issues/22877).
+
+**Fork setup:**
+- Synced `kimjune01/gemini-cli` fork with upstream (force-reset main to upstream/main, old fork had 4 stale commits causing merge conflicts)
+- Cherry-picked both feature commits onto synced main
+- Pushed `feat/union-find-compaction` branch to fork
+
+**Issue body includes:**
+- Results table with all 4 hypotheses
+- Cost breakdown (35 calls vs flat's 24 vs v1's 960)
+- Link to implementation branch and spec repo
+- Acknowledgment that the change is large (3 new + 3 modified files) and can't be broken up due to tight coupling
+- Mitigations: feature-flagged, no migration, 89 tests, reproducible harness
+- Recommendation to validate with Gemini 3 Pro at higher sample size before enabling
+- LLM disclosure: all artifacts produced with LLM assistance
+
+**README rewrite:**
+- Replaced v1-era content (Python prototype, prose-driven methodology pitch, broken links) with current state
+- Leads with results table, links to issue and implementation branch
+- Repository map table for easy navigation
+- Pre-merge checklist: rerun with production model, increase to 24+ conversations
+
+**Current status:** Issue open, `status/need-triage` label, zero comments. Waiting.
