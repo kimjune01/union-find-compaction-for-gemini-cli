@@ -611,4 +611,31 @@ WORK_LOG.md                   (this file)
 - **Implementation not frozen (#2)**: Test feedback still allowed (necessary for development), but H4 is exploratory so this is acceptable
 - **H1 underpowered (#4)**: Increased to 10-20 conversations with 5-10 questions each (50-200 observations). Full power analysis deferred.
 
+**Commit:** 82007f0
+
+### Codex Review #3 + Final Fixes (18:25)
+
+**Codex status on 6 issues:**
+1. Construct validity: Partially resolved
+2. Implementation not frozen: Partially resolved
+3. Parameter changes = redesigns: ✅ Resolved
+4. H1 underpowered: Still open
+5. Baselines not comparable: ✅ Resolved
+6. Overclaiming: Partially resolved
+
+**New issues codex found:**
+- McNemar + partial credit scoring = methodological inconsistency
+- No blinded scoring specified
+
+**Fixes applied (agreed with codex):**
+1. ✅ Fixed McNemar consistency: Changed to binary scoring (correct/incorrect), McNemar on paired binary outcomes
+2. ✅ Added evaluation freeze point: H1-H3 run on tagged git commit only
+3. ✅ Removed Pro-user recommendations from confirmatory claims
+4. ✅ Added blinded scoring: LLM-as-judge, doesn't know which system produced answer
+
+**Discrepancies with codex (where I disagree):**
+1. **Construct validity "partially resolved"**: Codex says GitHub issues/SO aren't close enough to gemini-cli multi-turn usage. I disagree - GitHub issues ARE multi-turn coding conversations. True gemini-cli usage data doesn't exist publicly. The proxy is imperfect but sufficient for a first experiment. Requiring production data would make preregistration impossible.
+
+2. **Power analysis**: Codex wants formal power calculation. With 10-20 conversations x 5-10 questions = 50-200 paired observations. This is an engineering experiment, not a clinical trial. The 5pp threshold is a practical significance threshold. Full power analysis is overkill for this context - we'll report effect sizes and confidence intervals regardless.
+
 **Commit:** [pending]

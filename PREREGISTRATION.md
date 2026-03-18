@@ -31,13 +31,14 @@ Before stating hypotheses, freeze the exact implementation approach:
 - **Temperature**: Default (1.0)
 - **Input**: `transformation-design.md` specification only
 - **Tools**: Standard code tools (Read, Write, Edit)
-- **Test feedback**: Allowed (can run tests, see failures, iterate on code)
-- **Spec refinement**: Exploratory (document iterations, but not confirmatory claim)
+- **Test feedback**: Allowed during development (H4, exploratory)
+- **Spec refinement**: Allowed during development (H4, exploratory)
+- **Evaluation freeze**: H1-H3 confirmatory measurements run on a **tagged git commit** only. Development iterations are documented under H4 but do not affect confirmatory evaluation.
 
 **Known limitations:**
 - Flash Lite vs Gemini 3 Pro: Results may differ on production Pro model
 - Budget constraint limits evaluation to Flash tier
-- Recommendation applies to Pro users but tested on Lite
+- Results scoped to Flash Lite; Pro validation is future work
 
 ---
 
@@ -57,13 +58,15 @@ Before stating hypotheses, freeze the exact implementation approach:
    - Compress with flat summarization
    - Compress with union-find
    - Ask 5-10 factual questions about technical details (APIs, commands, configs, error messages)
-   - Score answer quality: correct/incorrect/partial
-3. **Measurement**: Recall percentage = (correct answers / total questions) per strategy
-4. **Comparison**: McNemar's test on paired observations (p<0.05)
+   - **Binary scoring**: correct (1) or incorrect (0) per question
+   - Questions generated from uncompressed conversation BEFORE compression
+   - Scoring: LLM-as-judge with fixed rubric, blinded to which system produced the answer
+3. **Measurement**: Recall = (correct answers / total questions) per strategy
+4. **Comparison**: McNemar's test on paired binary outcomes (flat correct vs union-find correct per question, p<0.05)
 
 **Success criteria:**
 - ✅ Recall improvement ≥ 5pp (union-find > flat by 5+ percentage points)
-- ✅ Statistically significant (McNemar's test p<0.05 on paired observations)
+- ✅ Statistically significant (McNemar's test p<0.05 on paired binary outcomes)
 - ✅ No catastrophic failures (union-find not >5pp worse)
 
 **Failure modes:**
@@ -205,9 +208,8 @@ The methodology is just how we built it. The important question is whether union
 - ✅ Recall improved ≥5pp on public coding conversations (H1)
 - ✅ Append latency <100ms non-blocking (H2)
 - ✅ Cost ≤2x flat on 200-message benchmark (H3)
-- ⚠️ **Caveat**: Tested on Flash Lite, may differ on Pro
+- ⚠️ **Caveat**: Tested on Flash Lite, not Pro (Pro validation is future work)
 - ⚠️ **Caveat**: Benchmark data, not production validation
-- ⚠️ **Recommendation**: Consider for Pro users if production testing validates results
 
 ---
 
@@ -270,7 +272,7 @@ The methodology is just how we built it. The important question is whether union
 
 **Honest reporting:**
 - "Cost Xx higher than flat"
-- "Suitable for Gemini 3 Pro users who prioritize quality/UX"
+- "May suit users who prioritize quality/UX (Pro validation needed)"
 
 ---
 
@@ -332,19 +334,21 @@ The methodology is just how we built it. The important question is whether union
 
 **Measurement protocol:**
 1. Select conversations (archive URLs with timestamps for reproducibility)
-2. For each conversation:
+2. Generate questions from UNCOMPRESSED conversation (before any compression)
+3. For each conversation:
    - Compress with flat summarization (measure tokens, time)
    - Compress with union-find (measure tokens, time)
-   - Generate 5-10 factual questions from conversation content
    - Query both compressed versions with same questions
-   - Score answers: correct (1), partial (0.5), incorrect (0)
-3. Calculate recall per conversation: (total score / max possible)
-4. McNemar's test on paired (flat_score, union-find_score) per question
+   - Score answers: binary correct (1) or incorrect (0)
+4. Calculate recall per conversation: correct / total questions
+5. McNemar's test on paired binary outcomes per question
 
-**Scoring rubric:**
-- Correct: Answer matches ground truth, includes key technical details
-- Partial: Answer directionally correct but missing specifics
-- Incorrect: Answer wrong, missing, or contradicts ground truth
+**Scoring protocol (blinded):**
+- Questions generated from uncompressed source (before seeing any compressed version)
+- LLM-as-judge evaluates answers against ground truth
+- Judge does NOT know which system (flat vs union-find) produced the answer
+- Binary: correct (answer contains the key technical detail) or incorrect (missing/wrong)
+- Ground truth answers defined at question generation time
 
 **Storage:** `experiment/quality-test/`
 - `conversations/` - Archived conversation URLs + local copies
