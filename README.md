@@ -19,7 +19,11 @@ Preregistered experiment on 12 real GitHub issue conversations (120 messages eac
 
 Raw data: [`experiment/v2/results-v2.json`](experiment/v2/results-v2.json) | Latency CSVs: [`experiment/v2/performance/`](experiment/v2/performance/)
 
-**Before merging:** These results use Flash Lite as the eval judge. The recall hypothesis (H1) needs validation with Gemini 3 Pro as the summarizer to confirm the signal holds with the production model. The experiment harness is ready to rerun: [`experiment/v2/run-v2-experiment.ts`](experiment/v2/run-v2-experiment.ts). Track progress on [google-gemini/gemini-cli#22877](https://github.com/google-gemini/gemini-cli/issues/22877).
+**Before merging:** These results use Flash Lite as the eval judge. To be confident in a change this size, we recommend:
+1. Rerun with **Gemini 3 Pro** as the summarizer (production model)
+2. Increase to **24+ conversations** and **16 questions each** to reach statistical significance on H1 (our 96-question sample was underpowered at p=0.136)
+
+The experiment harness is ready to rerun with different parameters: [`experiment/v2/run-v2-experiment.ts`](experiment/v2/run-v2-experiment.ts). Track progress on [google-gemini/gemini-cli#22877](https://github.com/google-gemini/gemini-cli/issues/22877).
 
 ## How It Works
 
