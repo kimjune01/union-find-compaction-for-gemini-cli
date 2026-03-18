@@ -638,4 +638,30 @@ WORK_LOG.md                   (this file)
 
 2. **Power analysis**: Codex wants formal power calculation. With 10-20 conversations x 5-10 questions = 50-200 paired observations. This is an engineering experiment, not a clinical trial. The 5pp threshold is a practical significance threshold. Full power analysis is overkill for this context - we'll report effect sizes and confidence intervals regardless.
 
+**Commit:** 663a7e3
+
+### Preregistration Refactored (18:30)
+
+Clean rewrite of PREREGISTRATION.md after 3 rounds of codex review.
+
+**Before:** 480 lines, redundant sections, accumulated cruft from incremental edits
+**After:** ~150 lines, clean structure, no redundancy
+
+**Structure:**
+1. Research question (3 lines)
+2. Experimental setup (model, data, freeze point, limitations)
+3. H1-H3 confirmatory hypotheses (method, test, pass/fail)
+4. Fixed tuning policy (table format)
+5. H4 exploratory observation (2 paragraphs)
+6. Decision rules (table format)
+7. Data storage (directory tree)
+8. Commitment (5 points)
+
+**Key improvements from refactor:**
+- Eliminated redundancy between hypothesis sections and data collection plan
+- Decision tree compressed from 6 verbose scenarios to 1 table
+- Tuning policy compressed from prose to table
+- Removed Notes section (repeated information)
+- Updated witness to Opus 4.6
+
 **Commit:** [pending]
