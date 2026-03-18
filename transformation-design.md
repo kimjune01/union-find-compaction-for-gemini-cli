@@ -35,33 +35,44 @@ ChatCompressionService
 5. Verify snapshot (second LLM call)
 6. Inject snapshot + recent history
 
-### Target: Union-Find Compaction
+### Target: Union-Find Compaction (v2)
 
 ```
 ContextWindow
-  ├─ append(content, timestamp)
-  ├─ _graduate(message) → triggers merge if needed
-  ├─ render(query?) → retrieved clusters + hot messages
+  ├─ append(content, timestamp)        ← synchronous, no LLM calls
+  │     ├─ embed (local TF-IDF)
+  │     ├─ push to hot zone
+  │     └─ _graduate() if hot exceeds capacity
+  │           ├─ insert into forest
+  │           ├─ union() with nearest cluster if similar
+  │           └─ union() closest pair if over hard cap
+  ├─ render(query?) → async            ← LLM calls happen HERE
+  │     ├─ resolve dirty clusters (batch summarization)
+  │     ├─ retrieve relevant clusters by query
+  │     └─ return cold summaries + hot messages
   └─ Forest
       ├─ insert(msg_id, content, embedding, timestamp)
       ├─ find(msg_id) → root with path compression
-      ├─ union(id_a, id_b) → merge + summarize
-      │     ⚠️  "summarize" = merge TWO existing summaries, NOT re-read all member texts.
-      │        Re-reading all members makes each merge O(members) → total O(n²).
+      ├─ union(id_a, id_b) → structural merge only (synchronous)
+      │     ├─ parent pointers, children, centroids
+      │     └─ tracks new members since last clean summary
       ├─ nearest(query_embedding, k) → top-k clusters
       └─ expand(root_id) → source messages
 ```
 
 **Flow:**
-1. Every message appends to ContextWindow
+1. Every message appends to ContextWindow (synchronous, <1ms)
 2. If hot exceeds capacity, oldest graduates to cold
 3. Graduated message merges into nearest cluster (or creates singleton)
-4. If cold exceeds cluster budget, closest pair merges (one LLM call)
-   > ⚠️ **Non-blocking:** This LLM call must NOT block `append()`. Structural
-   > clustering (union-find ops) happens synchronously, but summarization must be
-   > deferred to `render()` time or run in the background. Blocking `append()`
-   > on an LLM call freezes the caller for 2-4 seconds per merge.
-5. Render: retrieve relevant clusters + all hot messages
+4. If cold exceeds cluster budget, closest pair merges structurally
+5. **No LLM calls during steps 1-4.** Merges are structural only.
+6. Render (async): resolve dirty clusters via batch summarization, then retrieve
+
+**Batch summarization at render time:**
+For each dirty cluster, `render()` makes **one** LLM call:
+`summarize([last_clean_summary, ...new_raw_messages_since_last_summary])`
+Each raw message appears in exactly one summarization call → O(n) total cost.
+With 10 clusters and 90 graduated messages: ~10 LLM calls, not 80.
 
 ## What Changes
 
@@ -71,7 +82,7 @@ ContextWindow
 
 ```typescript
 interface Embedder {
-  embed(text: string): Promise<number[]>;
+  embed(text: string): number[];  // synchronous — TF-IDF is local computation
 }
 
 interface Summarizer {
@@ -89,21 +100,26 @@ class Message {
 
 class Forest {
   private _nodes: Map<number, Message>;
-  private _summaries: Map<number, string>;    // root_id → summary
-  private _children: Map<number, number[]>;   // root_id → member ids
-  private _centroids: Map<number, number[]>;  // root_id → centroid
+  private _summaries: Map<number, string>;        // root_id → last clean summary
+  private _children: Map<number, number[]>;       // root_id → member ids
+  private _centroids: Map<number, number[]>;      // root_id → centroid
+  private _newMembers: Map<number, number[]>;     // root_id → member ids added since last clean summary
   private _embedder: Embedder;
   private _summarizer: Summarizer;
 
   insert(msg_id: number, content: string, embedding?: number[], timestamp?: string): number;
   find(msg_id: number): number;  // with path compression
-  union(id_a: number, id_b: number): number;  // merge + summarize
-  // ⚠️ IMPLEMENTATION NOTE: union() must merge the two ROOT SUMMARIES
-  // (summary(root_a) + summary(root_b) → new summary), NOT collect all
-  // member raw texts. Collecting members makes cost O(n²) across merges.
-  // Summarization should also be deferred (lazy at render-time or async)
-  // so that union() itself stays non-blocking.
-  compact(root_id: number): string;  // return summary
+  union(id_a: number, id_b: number): number;  // SYNCHRONOUS — structural merge only
+  // union() merges parent pointers, children, centroids, and new-member lists.
+  // It does NOT call the summarizer. No LLM calls. No async.
+  // The merged cluster's _newMembers accumulates all members that haven't
+  // been summarized yet. Summarization happens at render() time.
+  async resolveDirty(): Promise<void>;  // batch-summarize all dirty clusters
+  // For each cluster with non-empty _newMembers:
+  //   input = [last_clean_summary (if any), ...raw texts of _newMembers]
+  //   output = summarizer.summarize(input)
+  //   clears _newMembers, updates _summaries
+  compact(root_id: number): string;  // return summary (may be stale if dirty)
   expand(root_id: number): string[];  // return source messages
   nearest(query_embedding: number[], k: number, min_sim: number): number[];
 
@@ -111,6 +127,8 @@ class Forest {
   roots(): number[];
   members(root_id: number): number[];
   summary(root_id: number): string | null;
+  isDirty(root_id: number): boolean;  // has unsummarized members
+  dirtyRoots(): number[];             // all roots with unsummarized members
   size(): number;
   cluster_count(): number;
 }
@@ -131,9 +149,11 @@ class ContextWindow {
     merge_threshold: number = 0.15
   );
 
-  append(content: string, timestamp?: string): number;
-  private _graduate(msg: Message): void;
-  render(query?: string, k?: number, min_sim?: number): string[];
+  append(content: string, timestamp?: string): number;  // SYNCHRONOUS — no LLM calls
+  private _graduate(msg: Message): void;                 // SYNCHRONOUS — structural merge only
+  async render(query?: string, k?: number, min_sim?: number): Promise<string[]>;
+  // render() is async because it resolves dirty clusters via LLM batch summarization
+  // before retrieving. All LLM calls happen here, not in append() or _graduate().
   expand(root_id: number): string[];
 
   // Getters
@@ -169,8 +189,8 @@ async compactWithUnionFind(
 1. Get or create `ContextWindow` for this conversation
 2. For each message in chat history not yet in window:
    - Truncate tool outputs if needed
-   - `window.append(message.content, message.timestamp)`
-3. Render context: `window.render(query=lastUserMessage)`
+   - `window.append(message.content, message.timestamp)` — synchronous, no LLM calls
+3. Render context: `await window.render(query=lastUserMessage)` — async, batch-summarizes dirty clusters
 4. Return rendered clusters + hot messages as new history
 
 ### 3. New: Embedding Strategy
@@ -185,8 +205,8 @@ class TFIDFEmbedder implements Embedder {
   private vocabulary: Map<string, number>;
   private idf: Map<string, number>;
 
-  async embed(text: string): Promise<number[]> {
-    // Tokenize, compute TF, multiply by IDF, return sparse vector
+  embed(text: string): number[] {  // synchronous — local computation only
+    // Tokenize, compute TF, multiply by IDF, L2-normalize, return vector
   }
 }
 ```
@@ -224,11 +244,9 @@ class ClusterSummarizer implements Summarizer {
   ) {}
 
   async summarize(messages: string[]): Promise<string> {
-    // Sort by timestamp if available
-    // Generate summary via single LLM call
-    // Prompt: "Summarize these N messages into one dense paragraph.
-    //          Preserve technical details: ports, paths, commands, versions.
-    //          This is a cluster from a larger conversation."
+    // Called from Forest.resolveDirty() at render() time.
+    // Input: [last_clean_summary (if any), ...new_raw_messages]
+    // Each raw message appears in exactly one call → O(n) total cost.
     const response = await this.llmClient.generateContent({
       modelConfigKey: { model: this.modelConfigKey },
       contents: [{
@@ -237,29 +255,29 @@ class ClusterSummarizer implements Summarizer {
           text: this.buildClusterPrompt(messages)
         }]
       }],
-      systemInstruction: { text: 'You are a cluster summarizer...' },
-      role: LlmRole.UTILITY_COMPRESSOR
+      promptId: 'cluster-summarize',
+      role: LlmRole.UTILITY_COMPRESSOR,
+      abortSignal: new AbortController().signal,
     });
-    return getResponseText(response) ?? '';
+    return getResponseText(response)?.trim() ?? messages.join('\n---\n');
   }
 
   private buildClusterPrompt(messages: string[]): string {
-    return `Summarize these ${messages.length} messages into one dense paragraph (max 150 tokens).
+    return `Summarize these ${messages.length} items into one dense paragraph (max 150 tokens).
+The first item may be a previous summary — integrate it with the new messages.
 Preserve all specific technical details: version numbers, ports, file paths, commands, function names, thresholds.
 Drop filler and acknowledgments.
 
-Messages:
+Items:
 ${messages.map((m, i) => `[${i+1}] ${m}`).join('\n\n')}`;
   }
 }
 ```
 
-> ⚠️ **O(n²) WARNING:** When `union()` triggers summarization, the summarizer
-> must receive exactly TWO inputs — the existing summaries of the two roots being
-> merged. If the implementation instead collects all member raw texts (via
-> `expand()` or `members()`) and re-summarizes from scratch, every merge pays
-> O(members) and total cost across a session grows as O(n²). In the v1 experiment,
-> this bug produced 26.6× the expected LLM cost (266 calls vs ~10 expected).
+**v1 bug context (resolved in v2):** v1's `union()` called the summarizer on every
+merge, re-reading all member raw texts each time. This produced O(n²) cost (26.6×
+expected). v2 fixes this: `union()` is synchronous (no LLM calls), and `render()`
+batch-summarizes dirty clusters — one LLM call per cluster, not one per merge.
 
 **Key difference from flat:** No two-phase verification. Each cluster is small enough (~20-40 messages) that a single summarization call is sufficient.
 
@@ -429,17 +447,16 @@ const summarizer = new ClusterSummarizer(
 );
 ```
 
-**Cost model for Pro users:**
+**Cost model for Pro users (v2 batch summarization):**
 - Flat: 2 calls per compression event × large context (190 messages)
-- Union-find: 1 call per merge × small context (20-40 messages)
-- More calls, but each is cheaper input
-- Total cost comparable, but amortized over time (non-blocking)
+- Union-find v2: 1 call per dirty cluster at render time × medium context (summary + ~9 new messages)
+- With 10 clusters: ~10 LLM calls per render, each ~1000 tokens input
+- Total: ~10,000-15,000 tokens per conversation (comparable to flat's ~12,000)
 
-> ⚠️ **Cost assumption:** The ~10 calls estimate assumes **incremental summary
-> merging** (each call merges two summaries, ~300 tokens input). If the
-> implementation re-summarizes all member raw texts on each merge, the call count
-> explodes to O(n²) — the v1 experiment hit 266 calls for a 200-message
-> conversation (26.6× expected cost).
+**v1 cost comparison:** v1 hit 26.6× flat cost because `union()` called the
+summarizer on every merge (80 calls per conversation), re-reading all members
+each time (O(n²)). v2 decouples merging from summarization: structural merges
+are free, summarization is batched at render time (O(n)).
 
 ## Migration Path Detail
 
@@ -711,11 +728,12 @@ expect(ufRecall).toBeGreaterThan(flatRecall);
 ```typescript
 interface PerformanceMetrics {
   // UX
-  blockingTimeMs: number;        // 0 for union-find, 10000-30000 for flat
-  messagesPerSecond: number;     // Throughput during compression
+  appendP95Ms: number;           // union-find: <1ms, flat: N/A (doesn't append)
+  renderP95Ms: number;           // union-find: LLM batch time, flat: N/A
+  blockingTimeMs: number;        // flat only: 10000-30000ms compression event
 
   // Cost
-  llmCallCount: number;          // Flat: 2 per event, UF: ~1 per merge
+  llmCallCount: number;          // Flat: 2 per event, UF v2: ~10 per render
   totalInputTokens: number;      // Sum across all LLM calls
   totalOutputTokens: number;
 
@@ -728,31 +746,44 @@ interface PerformanceMetrics {
 
 **Tests:**
 ```typescript
-test('union-find is non-blocking', async () => {
+test('union-find append is synchronous and fast', () => {
   const start = Date.now();
-  await ufCompression.append(message);
+  ufCompression.append(message);  // synchronous — no await needed
   const latency = Date.now() - start;
 
-  expect(latency).toBeLessThan(100);  // <100ms per append
+  expect(latency).toBeLessThan(100);  // <100ms per append (local computation only)
 });
 
-test('flat compression blocks user', async () => {
-  const start = Date.now();
-  await flatCompression.compress();
-  const blockingTime = Date.now() - start;
+test('union-find append never calls summarizer', () => {
+  const summarizer = { summarize: vi.fn() };
+  const cw = new ContextWindow(embedder, summarizer, { hotSize: 2 });
 
-  expect(blockingTime).toBeGreaterThan(10000);  // >10s blocking
+  cw.append('msg1');
+  cw.append('msg2');
+  cw.append('msg3');  // triggers graduation + structural merge
+
+  expect(summarizer.summarize).not.toHaveBeenCalled();
+});
+
+test('render resolves dirty clusters via batch summarization', async () => {
+  // Append enough messages to create dirty clusters
+  for (let i = 0; i < 50; i++) cw.append(`msg${i}`);
+
+  // No LLM calls yet
+  expect(summarizer.summarize).not.toHaveBeenCalled();
+
+  // Render triggers batch summarization
+  await cw.render('query');
+
+  // ~10 calls (one per dirty cluster), not 80 (one per merge)
+  expect(summarizer.summarize.mock.calls.length).toBeLessThanOrEqual(15);
 });
 
 test('cost comparison for 200-message conversation', async () => {
   const flatMetrics = await measureCompressionCost(flatStrategy, conversation);
   const ufMetrics = await measureCompressionCost(ufStrategy, conversation);
 
-  // Union-find may have more calls but each is smaller
-  console.log('Flat:', flatMetrics);
-  console.log('Union-find:', ufMetrics);
-
-  // Acceptable if total cost within 2x
+  // Union-find v2 should be comparable, not 26x like v1
   expect(ufMetrics.totalInputTokens).toBeLessThan(flatMetrics.totalInputTokens * 2);
 });
 ```

@@ -962,3 +962,23 @@ Added 5 implementation warnings to `transformation-design.md` based on the two c
 - Ratio: ~1x — well within 2x criterion
 
 **Prereg updated:** Changed from pairwise replay to batch summarization. Added tracking of new-since-last-summary members per cluster.
+
+### Prose Updated: transformation-design.md (v2)
+
+Updated the transformation spec to reflect all three v2 architectural changes:
+
+1. **Architecture overview:** Rewrote target architecture diagram. `append()` is synchronous. `render()` is async. All LLM calls happen in render via batch summarization.
+
+2. **Forest class:** `union()` returns `number` (not `Promise<number>`). Added `_newMembers` map (tracks unsummarized members per cluster). Added `resolveDirty()` method. Added `isDirty()` and `dirtyRoots()` queries.
+
+3. **ContextWindow:** `append()` synchronous. `_graduate()` synchronous. `render()` async (returns `Promise<string[]>`).
+
+4. **ClusterSummarizer:** Input changed from two summaries to `[clean_summary, ...new_raw_messages]`. Prompt updated: "The first item may be a previous summary — integrate it with the new messages."
+
+5. **Cost model:** Updated from "1 call per merge" to "1 call per dirty cluster at render time." ~10 calls per conversation, ~10K-15K tokens (comparable to flat's ~12K).
+
+6. **Performance tests:** `append()` tests are synchronous (no `await`). Added test that summarizer is never called during append. Added test that render produces ≤15 summarization calls.
+
+7. **Removed all ⚠️ v1 warnings** — the bugs they warned about are now addressed in the design itself. Added "v1 bug context" notes explaining what changed.
+
+8. **Embedder interface:** Fixed `Promise<number[]>` → `number[]` to match TF-IDF (synchronous local computation).
