@@ -127,6 +127,19 @@ On each message:
 - **Literate programming revival**: [Natural Language Outlines for Code (arXiv 2024)](https://arxiv.org/abs/2408.04820)
 - **Spec-driven development**: [Thoughtworks 2025 Engineering Practices](https://www.thoughtworks.com/en-us/insights/blog/agile-engineering-practices/spec-driven-development-unpacking-2025-new-engineering-practices)
 
+## Acknowledgments
+
+This work emerged from a series of blog posts tracing the intellectual journey:
+
+- **[Union-Find Compaction](https://june.kim/union-find-compaction)** - Novel solution discussed
+- **[The Parts Bin](https://june.kim/the-parts-bin)** - Solution discovery approach
+- **[Diagnosis: LLM](https://june.kim/diagnosis-llm)** - Problem diagnosis
+- **[The Natural Framework](https://june.kim/the-natural-framework)** - Metacognition enabler
+- **[Double Loop](https://june.kim/double-loop)** - Methodology development
+- **[Vibelogging](https://june.kim/vibelogging)** - Methodology insight source
+
+The progression: vibelogging → methodology insight → double-loop methodology → natural framework for metacognition → diagnosing the LLM problem → discovering solutions in the parts bin → arriving at union-find compaction.
+
 ## License
 
 **Dual licensing** to protect methodology while enabling friction-free implementation:
