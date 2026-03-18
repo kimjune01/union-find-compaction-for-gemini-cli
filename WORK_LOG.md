@@ -896,3 +896,48 @@ Added 5 implementation warnings to `transformation-design.md` based on the two c
 4. Implement fixes
 5. Verify existing 75 tests still pass (backward compatible)
 6. Commit after each set of passing tests
+
+### Codex Review of PREREGISTRATION-V2 (first draft)
+
+**Reviewer:** GPT-5.4 via codex (skeptical methodologist persona)
+**Verdict:** 18 issues identified. "This reads like an attempt to preserve confirmatory status after a failed first experiment."
+
+**Critical issues codex flagged:**
+1. **Not meaningfully confirmatory** — same data, data-informed redesign = classic contamination
+2. **H2 changed in substance** — v1 measured system path, v2 excludes render() = metric redefinition after seeing failure
+3. **H2 is gameable** — append() just flips dirty flag, passes trivially while render() may be catastrophic
+4. **Dirty-flag under-specified** — no render schedule, batching semantics, staleness policy, concurrency model
+5. **H1 underpowered** — known from v1 (96 pairs, need ~200 for 80% power), not addressed
+6. **Claim ladder too generous** — "Confirmed" not defensible after v1 failure + same data reuse
+7. **Baseline reuse risky** — LLM drift between v1 and v2 runs invalidates cross-run comparison
+8. **H3 undefined under deferred execution** — cost depends on render schedule, not frozen
+9. **No holdout set** — no fresh benchmark, no independence check
+
+**Codex recommendation:** "Either introduce a fresh holdout and tighten the spec, or call v2 what it is: a data-informed exploratory redesign with benchmark validation."
+
+### PREREGISTRATION-V2 Rewrite (addressing codex review)
+
+**Changes made to address codex issues:**
+
+1. ✅ **Reclassified as exploratory** (#1, #7) — Title changed to "Exploratory benchmark validation on reused data." All hypotheses labeled exploratory. "Confirmed" removed from claim ladder entirely. Max claim: "Benchmark-supported on reused dataset."
+
+2. ✅ **Added H2b: Render Latency** (#2, #3) — New hypothesis measuring render() p95 separately. No pass/fail target (honest observation). Prevents hiding latency by deferring it. H2a kept for append-only (validates architectural fix worked).
+
+3. ✅ **Operational spec for dirty-flag** (#4) — Added: union() is sync (marks dirty), render() resolves all dirty clusters before returning, no stale summaries in output, sequential single-threaded, multiple appends batch dirty clusters.
+
+4. ✅ **Frozen render protocol** (#8) — render() called once after all messages appended (end-of-conversation). Cost counts ALL LLM calls across full lifecycle.
+
+5. ✅ **Contemporaneous baselines** (#7) — Flat compression rerun in same environment, not reusing v1 flat results.
+
+6. ✅ **Pinned model ID** (#9 from codex) — `gemini-3.1-flash-lite-preview` (exact string).
+
+7. ✅ **H1 sensitivity analysis** (#5, #14) — Added conversation-level sign test as secondary check. Acknowledged power limitation.
+
+8. ✅ **Data lineage clarified** (#11) — Explained how v1 prereg's "10-20 from GitHub/SO" resolved to these 12.
+
+**Not addressed (acknowledged as limitations):**
+- Fresh holdout set — budget constraint, acknowledged as limitation
+- H1 power — larger sample would cost more API calls, acknowledged
+- Judge reliability — LLM-as-judge noise acknowledged, no human spot-checks budgeted
+
+**File updated:** `PREREGISTRATION-V2.md`
