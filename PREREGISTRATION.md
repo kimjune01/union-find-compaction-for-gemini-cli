@@ -1,4 +1,4 @@
-# Preregistration: Prose-Driven Implementation Experiment
+# Preregistration: Union-Find Context Compaction for Gemini-CLI
 
 **Date:** 2026-03-17
 **Status:** Preregistered (before implementation attempt)
@@ -8,40 +8,36 @@
 
 ## Primary Research Question
 
-**Can a rigorous prose specification one-shot a complex refactoring implementation?**
+**Does union-find context compaction improve gemini-cli compared to flat summarization?**
 
-Specifically: Can Gemini 3 Pro (or equivalent LLM) implement the union-find context compaction transformation from `transformation-design.md` alone, producing code that passes tests and meets quality criteria **without iterative debugging**?
+Specifically, we test three confirmatory hypotheses:
+1. **Quality (H1)**: Recall improvement ≥5pp
+2. **UX (H2)**: Non-blocking append latency <100ms
+3. **Cost (H3)**: Total cost ≤2x flat
 
----
+These are the **primary claims** requiring rigorous preregistration and protection against p-hacking.
 
-## Hypotheses
-
-### H1: One-Shot Implementation (Primary)
-
-**Hypothesis:** Given `transformation-design.md`, an LLM can generate a correct TypeScript implementation that passes all tests on the first attempt.
-
-**Success criteria:**
-- ✅ All unit tests pass (find, union, merge, expand, retrieval)
-- ✅ All integration tests pass (backward compat, hooks, tool truncation)
-- ✅ No runtime errors in test execution
-- ✅ No manual debugging required
-
-**Failure modes:**
-- ❌ Tests fail due to logic errors
-- ❌ Tests fail due to missing edge cases
-- ❌ Implementation misinterprets specification
-- ❌ TypeScript compilation errors
-
-**Decision rule if H1 fails:**
-1. Document the failure mode (what went wrong?)
-2. Classify: Was it prose ambiguity, missing detail, or LLM limitation?
-3. If prose ambiguity: Refine spec, mark as iteration 1, retry
-4. If LLM limitation: Document as methodology limitation
-5. **Maximum 3 iterations** - if still failing, hypothesis rejected
+**Secondary observation (exploratory, not confirmatory):**
+- Development methodology: Document whether prose-driven development succeeds or requires iteration
 
 ---
 
-### H2: Recall Improvement (Quality)
+## Implementation Conditions (Frozen)
+
+Before stating hypotheses, freeze the exact implementation approach:
+
+- **Model**: Claude Sonnet 4.5 (`claude-sonnet-4-5-20250929`)
+- **Temperature**: Default (1.0)
+- **Input**: `transformation-design.md` specification only
+- **Tools**: Standard code tools (Read, Write, Edit)
+- **Test feedback**: Allowed (can run tests, see failures, iterate on code)
+- **Spec refinement**: Exploratory (document iterations, but not confirmatory claim)
+
+---
+
+## Primary Hypotheses (Confirmatory)
+
+### H1: Recall Improvement (Quality) - PRIMARY CONFIRMATORY
 
 **Hypothesis:** Union-find compaction improves recall by ≥5pp compared to flat summarization.
 
@@ -59,17 +55,14 @@ Specifically: Can Gemini 3 Pro (or equivalent LLM) implement the union-find cont
 - ❌ No significant difference (within ±2pp)
 - ❌ Union-find worse than flat (regression)
 
-**Decision rule if H2 fails:**
+**Decision rule if H1 fails:**
 - If no difference: Document as "comparable quality, but better UX"
-- If regression: Investigate cause:
-  - TF-IDF insufficient? → Try dense embeddings
-  - Merge threshold too aggressive? → Tune threshold
-  - Summary quality poor? → Add verification pass
-- **If still failing after tuning:** Acknowledge quality trade-off
+- If regression: Follow **Fixed Tuning Policy** (max 2 changes, see below)
+- **After 2 tuning attempts:** Acknowledge quality trade-off
 
 ---
 
-### H3: Non-Blocking UX (Performance)
+### H2: Non-Blocking UX (Performance) - PRIMARY CONFIRMATORY
 
 **Hypothesis:** Union-find append latency < 100ms per message (non-blocking UX).
 
@@ -86,16 +79,14 @@ Specifically: Can Gemini 3 Pro (or equivalent LLM) implement the union-find cont
 - ❌ Latency > 100ms (merge computation too slow)
 - ❌ Latency > 1000ms (requires spinner)
 
-**Decision rule if H3 fails:**
+**Decision rule if H2 fails:**
 - If 100ms < latency < 500ms: Still better than flat (20-30s), document trade-off
-- If latency > 500ms: Investigate:
-  - Embedding computation bottleneck? → Cache or async
-  - Merge algorithm too slow? → Optimize or reduce cluster count
-- **If latency > 1s after optimization:** Acknowledge UX regression
+- If latency > 500ms: Follow **Fixed Tuning Policy** (max 2 changes, see below)
+- **After 2 tuning attempts:** Acknowledge UX regression
 
 ---
 
-### H4: Cost Comparable (Economics)
+### H3: Cost Comparable (Economics) - PRIMARY CONFIRMATORY
 
 **Hypothesis:** Union-find total cost within 2x of flat summarization over 200 messages.
 
@@ -112,182 +103,203 @@ Specifically: Can Gemini 3 Pro (or equivalent LLM) implement the union-find cont
 **Failure modes:**
 - ❌ Union-find > 2x flat (too expensive)
 
-**Decision rule if H4 fails:**
+**Decision rule if H3 fails:**
 - If 2x < cost < 3x: Document trade-off (quality/UX vs cost)
-- If cost > 3x: Investigate:
-  - Too many merge events? → Increase cluster limit
-  - Summaries too verbose? → Tune prompts
-- **If cost > 3x after tuning:** Acknowledge cost trade-off
+- If cost > 3x: Follow **Fixed Tuning Policy** (max 2 changes, see below)
+- **After 2 tuning attempts:** Acknowledge cost trade-off
+
+---
+
+## Fixed Tuning Policy (Protection Against P-Hacking)
+
+**Purpose:** Limit post-hoc flexibility for H1-H3 (confirmatory hypotheses).
+
+**Rules:**
+1. **Initial measurement uses parameters from transformation-design.md** (frozen baseline)
+2. **Maximum 2 parameter changes per hypothesis** if initial fails
+3. **Changes follow priority order** (specified below)
+4. **Each change requires full re-measurement** with documented results
+5. **After 2 changes, accept outcome** - no further tuning
+
+**Allowed parameter changes (priority order):**
+
+**For H1 (Quality/Recall):**
+1. Change 1: Upgrade TF-IDF to dense embeddings (e.g., OpenAI text-embedding-3-small)
+2. Change 2: Adjust merge threshold (0.15 → {0.10, 0.20})
+3. STOP - accept result
+
+**For H2 (Performance/UX):**
+1. Change 1: Add embedding cache (avoid recomputation)
+2. Change 2: Async merge (non-blocking append)
+3. STOP - accept result
+
+**For H3 (Cost):**
+1. Change 1: Increase cluster limit (10 → 15, reduce merge frequency)
+2. Change 2: Tune summary brevity prompt
+3. STOP - accept result
+
+**Claim downgrade based on tuning:**
+- 0 changes needed: "Hypothesis confirmed"
+- 1-2 changes needed: "Hypothesis supported after tuning (exploratory)"
+- Still failing after 2 changes: "Hypothesis not supported"
+
+---
+
+## Secondary Observation (Exploratory, Not Confirmatory)
+
+### H4: Development Methodology
+
+**Observation:** Document the prose-driven development process.
+
+**What we'll record:**
+- Did implementation work on first attempt from transformation-design.md?
+- If not, how many iterations were needed?
+- What spec ambiguities were discovered?
+- What LLM limitations were encountered?
+
+**This is NOT a confirmatory hypothesis:**
+- No pass/fail criteria
+- No p-hacking risk (just documentation)
+- Interesting process note, not a rigorous claim
+- Will inform future prose-driven attempts
+
+**Why exploratory:**
+The methodology is just how we built it. The important question is whether union-find improves gemini-cli (H1-H3), not whether prose-driven development is perfect.
 
 ---
 
 ## Decision Tree
 
-### Scenario 1: All Hypotheses Pass (H1 ✅, H2 ✅, H3 ✅, H4 ✅)
+### Scenario 1: All Primary Hypotheses Pass (H1 ✅, H2 ✅, H3 ✅)
 
-**Outcome:** Prose-driven development validated for this case
+**Outcome:** Union-find is strictly better than flat summarization
 
 **Action:**
 1. Document results in RESULTS.md
 2. Open PR to gemini-cli with evidence
-3. Write blog post: "Prose-driven refactoring: A case study"
-4. Acknowledge methodology worked for this specific case
+3. Write blog post: "Union-find context compaction: Better recall, UX, and comparable cost"
+4. Note development methodology (H4) as interesting process observation
 
 **Claims we can make:**
-- ✅ One-shot implementation succeeded
-- ✅ Quality improved (recall +5pp)
+- ✅ Quality improved (recall ≥5pp better)
+- ✅ UX improved (non-blocking append <100ms)
+- ✅ Cost comparable (≤2x flat)
+- ✅ Union-find is superior for Gemini 3 Pro users
+
+---
+
+### Scenario 2: H1 Fails (Quality Regression), Others Pass
+
+**Outcome:** Recall not better than flat, but UX and cost are good
+
+**Action:**
+1. Follow Fixed Tuning Policy (max 2 changes)
+2. Re-measure after each change
+3. If still failing: Accept result
+
+**Claims we can make:**
+- ❌ Quality NOT better than baseline (recall comparable or worse)
 - ✅ UX improved (non-blocking)
 - ✅ Cost comparable
+- ⚠️ Trade-off: "Better UX at comparable quality and cost"
+
+**Honest reporting:**
+- "Recall improvement not statistically significant"
+- "Union-find provides UX benefits without quality regression"
 
 ---
 
-### Scenario 2: H1 Fails, Others Pass (Implementation Issues)
+### Scenario 3: H2 Fails (Performance Regression), Others Pass
 
-**Outcome:** Prose incomplete or LLM limitation
+**Outcome:** Recall better, cost good, but UX slow
 
 **Action:**
-1. Document failure mode (what the LLM got wrong)
-2. Refine specification based on failure
-3. Retry (up to 3 iterations)
-4. If still failing: Document as methodology limitation
+1. Follow Fixed Tuning Policy (max 2 changes)
+2. Profile and optimize
+3. If still failing: Accept result
 
 **Claims we can make:**
-- ❌ NOT "one-shot" (required iteration)
-- ✅ Specification eventually converged (if succeeded after iteration)
-- ✅ Prose-driven iterative development worked
+- ✅ Quality improved (recall ≥5pp better)
+- ❌ UX NOT better (append latency >100ms)
+- ✅ Cost comparable
+- ⚠️ Trade-off: "Better quality at comparable cost, but slower append"
 
 **Honest reporting:**
-- "Required N iterations to converge"
-- "Common failure modes: [list]"
-- "Prose ambiguities discovered: [list]"
+- "Append latency higher than expected (Xms p95)"
+- "Still better than flat's 20-30s blocking if <500ms"
 
 ---
 
-### Scenario 3: H1 Passes, H2 Fails (Quality Regression)
+### Scenario 4: H3 Fails (Cost Explosion), Others Pass
 
-**Outcome:** Implementation correct but quality poor
+**Outcome:** Recall better, UX good, but cost high
 
 **Action:**
-1. Investigate root cause (TF-IDF, threshold, summary quality)
-2. Tune parameters or upgrade embeddings
-3. Re-measure quality
+1. Follow Fixed Tuning Policy (max 2 changes)
+2. Measure token costs accurately
+3. If still failing: Accept result
 
 **Claims we can make:**
-- ✅ One-shot implementation succeeded
-- ❌ Quality NOT better than baseline
-- ⚠️ Document as "comparable quality, better UX" (if H3 passes)
+- ✅ Quality improved (recall ≥5pp better)
+- ✅ UX improved (non-blocking)
+- ❌ Cost NOT comparable (>2x flat)
+- ⚠️ Trade-off: "Premium feature for quality-focused users"
 
 **Honest reporting:**
-- "Recall improvement not significant"
-- "Trade-off: Better UX, comparable quality"
+- "Cost Xx higher than flat"
+- "Suitable for Gemini 3 Pro users who prioritize quality/UX"
 
 ---
 
-### Scenario 4: H1 Passes, H3 Fails (Performance Regression)
+### Scenario 5: Multiple Primary Hypotheses Fail
 
-**Outcome:** Implementation correct but too slow
-
-**Action:**
-1. Profile bottlenecks (embedding, merge, retrieval)
-2. Optimize hot paths
-3. Re-measure latency
-
-**Claims we can make:**
-- ✅ One-shot implementation succeeded
-- ❌ UX NOT better (still blocking or slow)
-- ⚠️ Document as "better quality, comparable UX" (if H2 passes)
-
-**Honest reporting:**
-- "Append latency higher than expected"
-- "Trade-off: Better quality, slower append"
-
----
-
-### Scenario 5: H1 Passes, H4 Fails (Cost Explosion)
-
-**Outcome:** Implementation correct but too expensive
+**Outcome:** Union-find does not improve gemini-cli
 
 **Action:**
-1. Measure actual token costs (input + output)
-2. Investigate why (too many merges? verbose summaries?)
-3. Tune to reduce cost
+1. Follow Fixed Tuning Policy for each failing hypothesis
+2. Document all results honestly
+3. Accept that union-find may not be better
 
 **Claims we can make:**
-- ✅ One-shot implementation succeeded
-- ❌ Cost NOT comparable (>2x baseline)
-- ⚠️ Document as premium feature for Pro users
+- ⚠️ Union-find does not provide clear improvement
+- ⚠️ Trade-offs documented transparently
+- ✅ Methodology was rigorous (even if result negative)
 
 **Honest reporting:**
-- "Cost 2-3x higher than flat"
-- "Trade-off: Better UX/quality, higher cost"
-- "Suitable for users who prioritize quality"
-
----
-
-### Scenario 6: Multiple Failures
-
-**Outcome:** Implementation issues AND quality/performance/cost problems
-
-**Action:**
-1. Address H1 first (implementation correctness)
-2. Then address H2/H3/H4 (quality/performance/cost)
-3. Be transparent about all trade-offs
-
-**Claims we can make:**
-- ⚠️ Required iteration to converge
-- ⚠️ Trade-offs documented honestly
-- ✅ Methodology provided learning (even if hypothesis rejected)
-
-**Honest reporting:**
-- "Hypothesis partially validated"
+- "Multiple hypotheses not supported"
 - "Trade-offs: [list all]"
-- "Lessons learned: [list]"
+- "Recommend staying with flat summarization"
 
 ---
 
 ## Stopping Rules
 
-### When to Stop Iterating (Give Up)
+### When to Stop Tuning (Accept Result)
 
-**Rule 1: Maximum Iterations**
-- If H1 fails after **3 implementation iterations**, stop
-- Document as: "Prose-driven one-shot failed, iterative approach required N+ iterations"
+**Rule 1: Maximum Parameter Changes**
+- **2 changes per hypothesis** (see Fixed Tuning Policy)
+- After 2 changes, accept result and document trade-offs
 
-**Rule 2: Fundamental Trade-Off**
-- If H2 AND H3 both fail after tuning, stop
+**Rule 2: Fundamental Failure**
+- If **H1 AND H2 both fail** after tuning, stop
 - Document as: "Union-find does not improve quality or UX over baseline"
+- Recommendation: Stay with flat summarization
 
 **Rule 3: Prohibitive Cost**
-- If H4 shows cost >3x after optimization, stop
+- If H3 shows cost **>3x** after tuning, stop
 - Document as: "Union-find too expensive for general use"
+- Recommendation: Not suitable for cost-sensitive users
 
 **Rule 4: Implementation Impossibility**
-- If implementation reveals specification is infeasible (architectural conflict, incompatible with gemini-cli), stop
+- If implementation reveals specification is infeasible (architectural conflict, incompatible with gemini-cli)
 - Document as: "Design incompatible with existing system"
+- Note: This invalidates experiment, not just hypothesis
 
 ---
 
 ## Data Collection Plan
 
-### Implementation Attempt (H1)
-
-**Data to collect:**
-1. Prompt given to LLM (exact text)
-2. Generated code (full implementation)
-3. Test results (pass/fail for each test)
-4. Compilation errors (if any)
-5. Runtime errors (if any)
-6. Manual fixes required (if any)
-
-**Storage:** `experiment/iteration-N/` directory with:
-- `prompt.md` - Exact prompt used
-- `generated-code.ts` - LLM output
-- `test-results.txt` - Test execution log
-- `fixes.md` - Any manual corrections (with rationale)
-
----
-
-### Quality Measurement (H2)
+### H1: Quality Measurement (Recall)
 
 **Test dataset:**
 - 10 conversations (100-300 messages each)
@@ -308,7 +320,7 @@ Specifically: Can Gemini 3 Pro (or equivalent LLM) implement the union-find cont
 
 ---
 
-### Performance Measurement (H3)
+### H2: Performance Measurement (UX/Latency)
 
 **Benchmark:**
 - 200-message conversation (append one by one)
@@ -321,7 +333,7 @@ Specifically: Can Gemini 3 Pro (or equivalent LLM) implement the union-find cont
 
 ---
 
-### Cost Measurement (H4)
+### H3: Cost Measurement (Economics)
 
 **Token tracking:**
 - Flat: Track input/output tokens for generate + verify calls
@@ -332,6 +344,28 @@ Specifically: Can Gemini 3 Pro (or equivalent LLM) implement the union-find cont
 - `flat-tokens.json` - Flat strategy token counts
 - `union-find-tokens.json` - Union-find token counts
 - `cost-comparison.md` - Cost analysis
+
+---
+
+### H4: Development Methodology (Exploratory Observation)
+
+**Data to collect:**
+1. Prompt given to LLM (exact text with transformation-design.md)
+2. Generated code (full implementation)
+3. Test results (pass/fail for each test, iteration by iteration)
+4. Compilation errors (if any)
+5. Spec refinements required (what was ambiguous/missing?)
+6. Number of iterations to working implementation
+
+**Storage:** `experiment/methodology/`
+- `iteration-N/` directories for each attempt
+  - `prompt.md` - Exact prompt used
+  - `generated-code.ts` - LLM output
+  - `test-results.txt` - Test execution log
+  - `fixes.md` - Any manual corrections or spec refinements
+- `summary.md` - Overall methodology assessment
+
+**Note:** This is observational only. No pass/fail criteria, just documentation for future prose-driven attempts.
 
 ---
 
@@ -359,12 +393,13 @@ Date: 2026-03-17
 
 After experiment completion, create `RESULTS.md` with:
 
-1. **Hypothesis outcomes** (H1-H4: ✅ or ❌)
-2. **Data summary** (recall, latency, cost measurements)
+1. **Hypothesis outcomes** (H1-H3: ✅ or ❌, with tuning if applicable)
+2. **Data summary** (recall percentages, latency p95, total cost comparison)
 3. **Decision tree outcome** (which scenario occurred)
-4. **Lessons learned** (what worked, what didn't)
-5. **Methodology assessment** (did prose-driven development work?)
-6. **Limitations and caveats** (honest about trade-offs)
+4. **Parameter changes made** (if any tuning was required, document what changed)
+5. **Lessons learned** (what worked, what didn't, trade-offs)
+6. **Methodology observation** (H4: how many iterations, what spec refinements)
+7. **Recommendation** (should gemini-cli adopt union-find? Under what conditions?)
 
 **Commit both PREREGISTRATION.md and RESULTS.md to git** - timestamp verifiable.
 
@@ -375,14 +410,25 @@ After experiment completion, create `RESULTS.md` with:
 This preregistration establishes scientific rigor for an engineering experiment. The goal is credibility: readers can verify we didn't massage results or change criteria post-hoc.
 
 **Why this matters:**
-- Bold claim: "prose can one-shot complex refactoring"
-- Easy to be accused of cherry-picking or HARKing
-- Preregistration demonstrates intellectual honesty
+- **Primary claim**: Union-find improves gemini-cli (quality, UX, cost)
+- **Scrutiny focus**: Code improvements, not development methodology
+- **Risk**: Easy to be accused of cherry-picking or p-hacking if not rigorous
+- **Protection**: Preregistration with fixed tuning policy prevents post-hoc rationalization
 
 **What success looks like:**
 - Not "everything worked perfectly"
-- But "we followed the process honestly and documented what we learned"
+- But "we followed the preregistered process honestly and documented all results"
+- Negative results are valid results - no need to massage data
+
+**What will be scrutinized:**
+- H1-H3 (Quality, UX, Cost) - primary confirmatory claims
+- Fixed tuning policy followed correctly
+- Honest reporting of trade-offs
+
+**What won't be scrutinized:**
+- H4 (Development methodology) - just interesting process documentation
+- Number of spec iterations needed - exploratory, not confirmatory
 
 ---
 
-**End of preregistration. Do not modify after implementation begins.**
+**End of preregistration. Do not modify H1-H3 criteria after implementation begins.**

@@ -525,4 +525,40 @@ WORK_LOG.md                   (this file)
 
 **Checkpoint:** ✅ **Hypotheses locked in** - Cannot modify after implementation begins
 
-**Commit:** [pending]
+**Commit:** fca8b33
+
+### Preregistration Reframe Based on Codex Review (17:55)
+
+**Critical insight:** Two confounding experiments detected
+1. **The method** (prose-driven development) - just process documentation
+2. **The code** (union-find improvements) - what will be scrutinized
+
+**Decision:** Be rigorous about code (#2), loose about method (#1)
+
+**Reframe applied:**
+
+**Before (method-focused):**
+- Primary: H1 (one-shot implementation)
+- Secondary: H2-H4 (code improvements)
+
+**After (code-focused):**
+- Primary confirmatory: H1=Quality, H2=UX, H3=Cost
+- Secondary exploratory: H4=Development methodology (just observation)
+
+**Changes made:**
+1. Title: "Union-Find Context Compaction" (not "Prose-Driven Experiment")
+2. Primary question: "Does union-find improve gemini-cli?" (not "Can prose one-shot?")
+3. Hypothesis reordering: Quality/UX/Cost first, method last
+4. Fixed Tuning Policy: Applies to H1-H3 (max 2 changes each)
+5. H4 made exploratory: No pass/fail, just document what happened
+6. Decision tree: Focus on code improvement scenarios
+7. Stopping rules: Based on H1-H3 outcomes
+8. Implementation conditions: Frozen model (Claude Sonnet 4.5), temp, files
+
+**Rationale:**
+- Reviewers will scrutinize whether union-find is actually better
+- Nobody cares if prose-driven method took 1 or 3 iterations
+- Tight preregistration where it matters (code claims)
+- Loose documentation where it doesn't (development process)
+
+**Commit:** [pending - will ask codex for review first]
