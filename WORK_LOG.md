@@ -862,3 +862,37 @@ Added 5 implementation warnings to `transformation-design.md` based on the two c
 5. **Line 418** (cost model section): ~10 calls estimate assumes incremental merging; full re-summarization produces O(n²)
 
 **Purpose:** Prevent anyone implementing v2 from making the same mistakes. The spec prose was ambiguous enough that both bugs were easy to introduce.
+
+---
+
+## v2 Implementation (2026-03-17)
+
+### Preregistration Alignment Check
+
+**Problem:** v1 preregistration stopping rule was triggered (H1 AND H2 both fail, cost >3x). The two required fixes — incremental summary merging and non-blocking append — are explicitly classified as "architectural changes" in the v1 Fixed Tuning Policy, which says these "require reclassification as exploratory."
+
+**Decision:** Create `PREREGISTRATION-V2.md` — fresh preregistration with same H1/H2/H3 criteria, frozen before v2 implementation begins. This preserves rigor rather than retroactively reclassifying v1 results.
+
+**Key differences from v1 prereg:**
+- Acknowledges v2 is informed by v1 failures (not independent)
+- Reuses same 12 conversations (risk: overfitting, mitigated by no parameter changes based on v1 recall)
+- Documents the two architectural changes as the independent variable
+- Same claim strength ladder: 0 changes = "Confirmed", 1-2 = "Supported after tuning", architectural = new prereg
+
+**File created:** `PREREGISTRATION-V2.md`
+
+### v2 Implementation Plan
+
+**Two bugs to fix (from v1 experiment):**
+
+1. **Bug #1 — O(n²) re-summarization:** `Forest.union()` collected ALL member raw texts and re-summarized. Fix: merge two root summaries only. For singletons without a summary yet, use raw content as the "summary."
+
+2. **Bug #2 — Blocking LLM calls:** `ContextWindow.append()` awaited `_graduate()` → `union()` → `summarize()`. Fix: `union()` becomes synchronous (structural merge only, marks summary as dirty). Deferred summarization happens at `render()` time.
+
+**TDD approach:**
+1. Update tests for new `union()` behavior (synchronous, no LLM call)
+2. Add tests for dirty-flag mechanism and deferred summarization
+3. Add tests verifying `append()` never calls summarizer
+4. Implement fixes
+5. Verify existing 75 tests still pass (backward compatible)
+6. Commit after each set of passing tests
