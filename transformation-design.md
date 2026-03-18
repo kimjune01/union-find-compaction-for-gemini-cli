@@ -46,6 +46,8 @@ ContextWindow
       ├─ insert(msg_id, content, embedding, timestamp)
       ├─ find(msg_id) → root with path compression
       ├─ union(id_a, id_b) → merge + summarize
+      │     ⚠️  "summarize" = merge TWO existing summaries, NOT re-read all member texts.
+      │        Re-reading all members makes each merge O(members) → total O(n²).
       ├─ nearest(query_embedding, k) → top-k clusters
       └─ expand(root_id) → source messages
 ```
@@ -55,6 +57,10 @@ ContextWindow
 2. If hot exceeds capacity, oldest graduates to cold
 3. Graduated message merges into nearest cluster (or creates singleton)
 4. If cold exceeds cluster budget, closest pair merges (one LLM call)
+   > ⚠️ **Non-blocking:** This LLM call must NOT block `append()`. Structural
+   > clustering (union-find ops) happens synchronously, but summarization must be
+   > deferred to `render()` time or run in the background. Blocking `append()`
+   > on an LLM call freezes the caller for 2-4 seconds per merge.
 5. Render: retrieve relevant clusters + all hot messages
 
 ## What Changes
@@ -92,6 +98,11 @@ class Forest {
   insert(msg_id: number, content: string, embedding?: number[], timestamp?: string): number;
   find(msg_id: number): number;  // with path compression
   union(id_a: number, id_b: number): number;  // merge + summarize
+  // ⚠️ IMPLEMENTATION NOTE: union() must merge the two ROOT SUMMARIES
+  // (summary(root_a) + summary(root_b) → new summary), NOT collect all
+  // member raw texts. Collecting members makes cost O(n²) across merges.
+  // Summarization should also be deferred (lazy at render-time or async)
+  // so that union() itself stays non-blocking.
   compact(root_id: number): string;  // return summary
   expand(root_id: number): string[];  // return source messages
   nearest(query_embedding: number[], k: number, min_sim: number): number[];
@@ -242,6 +253,13 @@ ${messages.map((m, i) => `[${i+1}] ${m}`).join('\n\n')}`;
   }
 }
 ```
+
+> ⚠️ **O(n²) WARNING:** When `union()` triggers summarization, the summarizer
+> must receive exactly TWO inputs — the existing summaries of the two roots being
+> merged. If the implementation instead collects all member raw texts (via
+> `expand()` or `members()`) and re-summarizes from scratch, every merge pays
+> O(members) and total cost across a session grows as O(n²). In the v1 experiment,
+> this bug produced 26.6× the expected LLM cost (266 calls vs ~10 expected).
 
 **Key difference from flat:** No two-phase verification. Each cluster is small enough (~20-40 messages) that a single summarization call is sufficient.
 
@@ -416,6 +434,12 @@ const summarizer = new ClusterSummarizer(
 - Union-find: 1 call per merge × small context (20-40 messages)
 - More calls, but each is cheaper input
 - Total cost comparable, but amortized over time (non-blocking)
+
+> ⚠️ **Cost assumption:** The ~10 calls estimate assumes **incremental summary
+> merging** (each call merges two summaries, ~300 tokens input). If the
+> implementation re-summarizes all member raw texts on each merge, the call count
+> explodes to O(n²) — the v1 experiment hit 266 calls for a 200-message
+> conversation (26.6× expected cost).
 
 ## Migration Path Detail
 

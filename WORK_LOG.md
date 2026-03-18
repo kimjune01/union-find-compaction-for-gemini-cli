@@ -845,3 +845,20 @@ Also: "Stop if cost >3x" — 26.6x > 3x.
 - `experiment/quality-test/conversations/conv_01.json` through `conv_12.json` — Source data
 - `experiment/quality-test/h1-recall-benchmark.ts` — Structural recall benchmark
 - `experiment/cost/h3-cost-analysis.ts` — Token estimation script
+
+### Spec Warnings Added (post-experiment)
+
+Added 5 implementation warnings to `transformation-design.md` based on the two critical bugs discovered in the v1 experiment:
+
+**Bug 1 — Quadratic re-summarization:** `Forest.union()` collected ALL member raw texts and re-summarized from scratch on every merge. Each merge was O(members), total cost O(n²). Produced 26.6x expected LLM cost (266 calls vs ~10 expected).
+
+**Bug 2 — Synchronous LLM blocking:** `ContextWindow.append()` awaited `_graduate()` → `union()` → `summarize()` synchronously. Every merge blocked the caller for 2-4s. 66.7% of appends triggered blocking LLM calls.
+
+**Warnings added at 5 locations:**
+1. **Line 48** (union method in architecture overview): "summarize" means merge two existing summaries, not re-read all member texts
+2. **Line 57** (flow step 4): LLM call must not block `append()` — defer to `render()` or run async
+3. **Line 94** (union method signature): implementation note clarifying correct merge approach + non-blocking requirement
+4. **Line 246** (ClusterSummarizer section): O(n²) warning box with v1 cost data (26.6x)
+5. **Line 418** (cost model section): ~10 calls estimate assumes incremental merging; full re-summarization produces O(n²)
+
+**Purpose:** Prevent anyone implementing v2 from making the same mistakes. The spec prose was ambiguous enough that both bugs were easy to introduce.
