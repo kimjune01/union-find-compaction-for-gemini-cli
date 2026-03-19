@@ -8,6 +8,10 @@
  *   score with blinded LLM-as-judge, McNemar's test.
  * H2 (Latency): Measure per-append latency with real LLM summarizer.
  * H3 (Cost): Track actual token counts from API responses.
+ *
+ * Implementation under test:
+ * https://github.com/kimjune01/gemini-cli/tree/feat/union-find-compaction-v2
+ * Commit: 04d6451d9f232ec4e5c27c21dbd1c22e64133600
  */
 
 import * as fs from 'node:fs';
@@ -15,8 +19,8 @@ import * as path from 'node:path';
 import {
   ContextWindow,
   type Summarizer,
-} from '/Users/junekim/Documents/gemini-cli/packages/core/src/services/contextWindow.js';
-import { TFIDFEmbedder } from '/Users/junekim/Documents/gemini-cli/packages/core/src/services/embeddingService.js';
+} from '/Users/junekim/Documents/gemini-cli-experiment/packages/core/src/services/contextWindow.js';
+import { TFIDFEmbedder } from '/Users/junekim/Documents/gemini-cli-experiment/packages/core/src/services/embeddingService.js';
 
 // ─── Config ───────────────────────────────────────────────────────────────────
 const API_KEY = process.env.GEMINI_API_KEY ?? '';

@@ -20,8 +20,8 @@ import {
   ContextWindow,
   Forest,
   type Summarizer,
-} from '/Users/junekim/Documents/gemini-cli/packages/core/src/services/contextWindow.js';
-import { TFIDFEmbedder } from '/Users/junekim/Documents/gemini-cli/packages/core/src/services/embeddingService.js';
+} from '/Users/junekim/Documents/gemini-cli-experiment/packages/core/src/services/contextWindow.js';
+import { TFIDFEmbedder } from '/Users/junekim/Documents/gemini-cli-experiment/packages/core/src/services/embeddingService.js';
 
 // -- Types --
 interface PlantedFact {
