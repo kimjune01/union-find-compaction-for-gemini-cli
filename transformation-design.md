@@ -925,6 +925,48 @@ Full details in [WORK_LOG.md](WORK_LOG.md).
 - `AbortSignal` not propagated — `ClusterSummarizer` creates a detached controller per call; user cancellation doesn't stop background summarization
 - Overlap window renders messages in both cold (cluster summary) and hot (verbatim) — no deduplication
 
+### Inherited bugs from shared utilities
+
+The union-find path calls `truncateHistoryToBudget()` before graduation. A code review
+of the existing flat compression path found four bugs in shared code. Two are inherited:
+
+**Inherited:**
+1. **Tool-response field loss** (HIGH): `truncateHistoryToBudget` extracts only
+   `response.output` or `response.content` into a string, estimates tokens from that
+   alone, then rewrites the response to `{ output: truncatedMessage }`. Other fields
+   on the response object are silently discarded. Token budget can be exceeded because
+   extra fields aren't counted. Users report compression barely reducing size
+   ([#15225](https://github.com/google-gemini/gemini-cli/issues/15225)).
+
+2. **Unbounded temp-file growth** (MEDIUM): Each compression run writes a full copy of
+   oversized tool outputs to `tool-outputs/` with a new truncation ID. No dedup or
+   cleanup. Long sessions leak disk space.
+
+**Not inherited:**
+3. `findCompressSplitPoint` uses `JSON.stringify` length — union-find doesn't use this.
+4. "Send original vs truncated" gate uses wrong model limit — union-find has no such gate.
+
+**Plan:** These are upstream bugs. Fixing them benefits both paths. Proposed as separate
+PRs rather than bundling with the union-find feature:
+
+- **Fix 1 (token accounting + field loss):** `truncateHistoryToBudget` bypasses the
+  existing `estimateFunctionResponseTokens()` in `tokenCalculation.ts:76` and estimates
+  only extracted text. Fix: use `estimateTokenCountSync([part])` for full-part budgeting.
+  For truncation, replace only `response.output` or `response.content` (the large payload
+  field) instead of rewriting the entire response to `{ output: ... }`. This preserves
+  structured sibling fields. Risk: more accurate counting will truncate earlier, shifting
+  test expectations.
+
+- **Fix 2 (temp file leak):** Compression writes to project-level `tool-outputs/` without
+  a `sessionId`, but session cleanup only deletes `tool-outputs/session-<id>/`. "Add
+  cleanup on session end" won't catch these files. Fix: write compression artifacts under
+  a session-specific path (`tool-outputs/session-<id>/`), then existing session cleanup
+  handles them. Content-hash dedup is overkill as first step — defer unless disk usage
+  remains a problem after session-scoped writes.
+
+**Approach:** Add root-cause comments to existing issues (#15225, #22942) rather than
+opening new ones. Go straight to PRs if maintainers are receptive.
+
 **See DESIGN_DECISIONS.md for complete rationale and iteration triggers.**
 
 ## Next: Implementation Iteration

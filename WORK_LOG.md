@@ -1291,6 +1291,31 @@ Aligned spec with actual implementation after code review. 20 discrepancies iden
 - `string | null` vs `string | undefined` for summary return type
 - Default parameter values in `nearest()`
 
+### Bugs Found in Existing Flat Compression Path (2026-03-18)
+
+**Motivation:** The prose extraction assumed the existing code was correct. Ran GPT-5.4 code review on the flat compression path (lines 62-527 of chatCompressionService.ts) to verify that assumption.
+
+**Four bugs found:**
+
+| # | Severity | Bug | Lines | Users reporting? |
+|---|----------|-----|-------|-----------------|
+| 1 | HIGH | `truncateHistoryToBudget` drops structured tool-response fields and undercounts tokens. Extracts only `response.output`/`response.content`, discards other fields, rewrites response to `{ output: truncatedMessage }`. | L153-198 | Indirectly (#15225) |
+| 2 | HIGH | "Send original history" gate compares `originalToCompressTokenCount` against `tokenLimit(model)` (chat model), but request goes to compressor model with added system prompt + user prompt + verification pass. Can overflow compressor's context window. | L389-431 | #22942 (113% context), #15225 (compression barely reduces), #15643 (context still full) |
+| 3 | MEDIUM | `findCompressSplitPoint` uses `JSON.stringify().length` not token count. "Preserve latest 30%" drifts for non-ASCII, media, PDFs, truncated placeholders. | L70 | #15643 |
+| 4 | MEDIUM | Repeated compression leaks temp files. Each run writes full copy of oversized tool outputs with new truncation ID. No dedup or cleanup. | L185 | None found |
+
+**Maintainer awareness:**
+- #21890 "Fix & Enhance Existing Compression Logic" (P2, maintainer only) acknowledges "known gaps in current compression token counting." This is bug #2.
+- Users reporting symptoms in #22942, #15225, #15643, #19590
+
+**Impact on union-find path:**
+- Bug 1: **INHERITED** — we call `truncateHistoryToBudget` at L573
+- Bug 2: **PARTIALLY INHERITED** — same threshold check at L560, but no "original vs truncated" gate (our summarizer gets small clusters, overflow unlikely)
+- Bug 3: **NOT INHERITED** — we don't use `findCompressSplitPoint`
+- Bug 4: **INHERITED** — same `truncateHistoryToBudget` call
+
+**Key insight:** The prose extraction faithfully captured broken behavior. The spec was a hypothesis built on unverified premises. Should have reviewed the extraction source before designing on top of it.
+
 ### Reviewer Experience Improvements (2026-03-18)
 
 **Decision:** Instead of splitting into 4 commits (considered, rejected — would require interactive rebase and the coupling makes isolated review misleading), focus on making the existing 3-commit structure reviewable.
