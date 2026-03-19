@@ -1290,3 +1290,28 @@ Aligned spec with actual implementation after code review. 20 discrepancies iden
 - snake_case vs camelCase in field/method names
 - `string | null` vs `string | undefined` for summary return type
 - Default parameter values in `nearest()`
+
+### Reviewer Experience Improvements (2026-03-18)
+
+**Decision:** Instead of splitting into 4 commits (considered, rejected — would require interactive rebase and the coupling makes isolated review misleading), focus on making the existing 3-commit structure reviewable.
+
+**Changes made:**
+1. **Reading order** added to contextWindow.ts module docstring: cosineSimilarity → Forest → ContextWindow → integration
+2. **Inline comments at non-obvious spots**:
+   - cosineSimilarity: why mismatched dimensions are handled this way
+   - resolveDirty: full explanation of the reference-equality concurrency guard
+   - render: why embedQuery instead of embed
+3. **Design doc linked** from both the module docstring and the GitHub issue
+4. **Commit message** for fix commit lists all 5 bugs with one-line explanations
+5. **Issue body** already has Review-Driven Hardening section showing the bugs were found and fixed
+
+**Commits:**
+- `70a7e70` (prose repo): Align spec with implementation
+- `cc8e2e2` (gemini-cli): fix(core): harden union-find compaction after code review
+
+**Branch now has 3 commits:**
+1. `9dbb15f` — feat(core): add union-find context compaction with feature flag
+2. `6950b3f` — feat(core): v2 union-find with overlap window and deferred summarization
+3. `cc8e2e2` — fix(core): harden union-find compaction after code review
+
+The third commit is the one reviewers should look at most carefully — it's where the subtle bugs live and the fixes are well-commented.
