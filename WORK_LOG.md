@@ -1121,3 +1121,172 @@ Submitted feature proposal as [google-gemini/gemini-cli#22877](https://github.co
 - Pre-merge checklist: rerun with production model, increase to 24+ conversations
 
 **Current status:** Issue open, `status/need-triage` label, zero comments. Waiting.
+
+---
+
+## Pre-PR Code Review (2026-03-18)
+
+### Motivation
+Before submitting the PR, ran a code review via GPT-5.4 (codex) to catch bugs that tests missed. Didn't want to be embarrassed by a memory leak or NaN corruption in a Google repo review.
+
+### Review method
+1. Read all three implementation files (contextWindow.ts, embeddingService.ts, clusterSummarizer.ts) + integration in chatCompressionService.ts
+2. Identified 7 potential issues manually
+3. Sent code + issue list to codex for confirm/refute + additional findings
+
+### Issues confirmed by codex (with severity)
+
+| # | Issue | Severity | Tests catch it? |
+|---|-------|----------|-----------------|
+| 1 | **Embedding dimension mismatch → NaN**: TF-IDF vocab grows per embed(), so older vectors are shorter. cosineSimilarity reads b[i] as undefined when a is longer → NaN. Same in centroid merging. | **HIGH** | No — tests use fixed-width stubs |
+| 2 | **resolveDirty() race with clear()**: _dirtyInputs.clear() wipes entries added by union() during async loop. Also: _summaries.set(root, ...) can write to an obsolete non-root key if root merged during flight. | **HIGH** | No — all coverage is serial |
+| 3 | **AbortSignal ignored**: ClusterSummarizer creates detached AbortController per call. No way to propagate caller's signal through Summarizer interface. | MEDIUM | No |
+| 4 | **Unbounded TF-IDF vocabulary**: _vocab and _termDocFreq grow forever. O(|vocab|) per new vector. | MEDIUM | No — test enshrines growth as expected |
+| 5 | **Unbounded _nodes map**: No eviction logic despite design doc mentioning 1000-message cap. | MEDIUM | No |
+| 6 | **totalMessages double-counts overlap**: forest.size() + hot.length counts graduated messages twice. | LOW | No — only tested before graduation |
+
+### Issue refuted by codex
+
+| # | Issue | Verdict |
+|---|-------|---------|
+| 7 | Recursive find() stack overflow | **Not a bug** — union-by-rank keeps tree height O(log n). Would need external corruption of _parent pointers. |
+
+### Additional issues codex found (missed in manual review)
+
+| # | Issue | Severity | Tests catch it? |
+|---|-------|----------|-----------------|
+| 8 | **render(query) mutates TF-IDF corpus**: embed(query) updates _vocab, _docCount, _termDocFreq — searching contaminates the corpus and changes future embeddings. Also triggers the dimension mismatch bug. | **HIGH** | No |
+| 9 | **Stale embeddings from IDF drift**: IDF depends on global docCount/df, but old message embeddings and centroids are never recomputed. Vectors from different time periods use incompatible coordinate scales. | MEDIUM | No |
+| 10 | **findClosestPair() makes arbitrary merges when NaN**: bestPair initialized to first two roots; if all sims are NaN (from issue 1), sim > bestSim is always false → returns arbitrary pair. Downstream amplification of issue 1. | MEDIUM | No |
+
+### PR blockers (must fix before submitting)
+
+1. **Embedding dimension mismatch (#1)** — Pad shorter vectors with zeros in cosineSimilarity, or use fixed-dimension embeddings
+2. **resolveDirty() race (#2)** — Delete resolved entries individually instead of clear(); guard against obsolete root writes
+3. **render(query) corpus contamination (#8)** — Add an embed-without-mutate path (e.g., embedQuery() that doesn't update state)
+
+### Should fix (not blockers but will get flagged in review)
+
+4. Unbounded _nodes (#5) — Add eviction or document the omission
+5. AbortSignal (#3) — Thread signal through Summarizer interface
+6. totalMessages double-count (#6) — Subtract overlap or rename to clarify semantics
+
+### Acceptable for spike (document as known limitations)
+
+7. Unbounded TF-IDF vocab (#4) — bounded in practice by conversation length; document
+8. IDF drift (#9) — inherent to incremental TF-IDF; upgrade to dense embeddings later
+9. NaN amplification in findClosestPair (#10) — fixed by fixing #1
+
+### Fixes Applied (2026-03-18)
+
+**Fix 1 — Embedding dimension mismatch (#1, #10)**
+- `cosineSimilarity()`: iterate `Math.min(a.length, b.length)` for dot product, include trailing dims in norms. Mismatched vectors now produce valid similarity (lower due to unmatched dimensions, as expected).
+- `Forest.union()` centroid merging: use `Math.max(ca.length, cb.length)` with `?? 0` for missing dims.
+- Tests added: mismatched-dimension cosine similarity (2 cases), centroid merge with mismatched dims.
+
+**Fix 2 — resolveDirty() race condition (#2)**
+- Replaced `_dirtyInputs.clear()` with per-entry `_dirtyInputs.delete(root)` after each resolve.
+- Added `if (!this._dirtyInputs.has(root)) continue` guard for roots consumed by concurrent union.
+- Resolve writes summary to `this.find(root)` (current root), not the snapshotted root, handling merges during flight.
+- Test added: union() during slow resolveDirty() doesn't drop new dirty state.
+
+**Fix 3 — render(query) corpus contamination (#8)**
+- Added `embedQuery?(text: string): number[]` to Embedder interface (optional, backward compatible).
+- `ContextWindow.render()` uses `embedQuery` when available, falls back to `embed`.
+- `TFIDFEmbedder.embedQuery()` computes TF-IDF against current vocab without mutating `_vocab`, `_docCount`, or `_termDocFreq`. Unknown terms silently ignored (zero weight).
+- Tests added: embedQuery doesn't grow vocab, embedQuery uses known terms, render(query) calls embedQuery not embed.
+
+**Verification (round 1):**
+- 60/60 tests pass (was 51 before, +9 new tests)
+- Pre-existing type check failures (missing node_modules) unrelated to changes
+
+### Second Codex Review (2026-03-18)
+
+**Verdict:** Fix 1 correct, Fix 3 correct, Fix 2 partially correct.
+
+**Two new issues found:**
+
+1. **HIGH — In-flight merge during resolveDirty()**: If `union()` merges new content into the root being summarized, `_dirtyInputs` gets replaced with a new array containing combined inputs. The old fix wrote a stale summary (covering only pre-merge content) and deleted the combined dirty entry.
+2. **MEDIUM — `evictAt < graduateAt` corrupts `_graduatedIndex`**: Config like `{graduateAt: 5, evictAt: 3}` makes `_graduatedIndex` go negative.
+
+### Fixes Applied (round 2)
+
+**Fix 2b — In-flight merge race**
+- Changed `resolveDirty()` guard from `currentRoot === root && _dirtyInputs.has(root)` to `_dirtyInputs.get(root) === inputs` (reference equality).
+- Since `union()` creates a new array via `[...inputsA, ...inputsB]`, any modification during flight changes the reference, causing the stale summary to be safely skipped.
+- Test added: merge into in-flight root during resolveDirty doesn't overwrite combined dirty state.
+
+**Fix 4 — Constructor validation**
+- Added `if (evictAt < graduateAt) throw Error(...)` in ContextWindow constructor.
+- Test added: throws on invalid config.
+
+**Verification (round 2):**
+- 62/62 tests pass
+
+### PR Issue Body Review (2026-03-18)
+
+**Reviewer:** GPT-5.4 via codex
+**Target:** GitHub issue #22877 body (the pitch to Google maintainers)
+
+**Core diagnosis:** Reads like a sales pitch, should read like a design proposal. Overclaims certainty, understates engineering risk/hardening.
+
+**Factual errors to fix:**
+- "89/89 tests" → 62 tests (changed after code review fixes)
+- "experimentally validated" → too strong for n=12 and p=0.136
+- "zero-blocking" → overclaims; should say "removes summarization from synchronous path"
+
+**What to add:**
+1. Review-driven hardening section — shows design survived real review, builds trust
+2. Cost paradox explanation — "more calls but each summarizes a smaller cluster incrementally"
+3. Known limitations — unbounded _nodes, IDF drift, totalMessages double-count
+4. Explicit ask — architectural feedback? PR permission? Experiment review?
+5. `embedQuery()` interface change — new public API surface
+
+**What to cut:**
+- "experimentally validated", "zero-blocking", "cheaper than flat" (marketing language)
+- Exact commit count, "0 type errors, pre-commit hooks clean" (baseline, not persuasive)
+- "shipping any piece alone wouldn't be testable or useful" (too absolute, invites disagreement)
+
+**Tone repositioning:**
+- FROM: "here is a proven replacement"
+- TO: "here is a concrete alternative architecture with evidence, known limits, and a specific ask"
+
+**Strongest existing element:** "hide summarization latency under the normal model wait" — product-level benefit maintainers can reason about.
+
+### Issue #22877 Rewritten (2026-03-18)
+
+Applied all codex feedback. Key changes from original:
+
+1. **Summary**: "Implemented, tested (89/89), and experimentally validated" → "Implemented behind a feature flag with 62 tests, evaluated on 12 conversations"
+2. **Tone**: Removed marketing language ("zero-blocking", "cheaper than flat", "validated"). Replaced with precise claims.
+3. **Added sections**: Review-Driven Hardening (5 fixes), Known Limitations (5 items), explicit Ask
+4. **Cost explanation**: Added "more calls but each summarizes a smaller cluster incrementally"
+5. **Recall**: Relabeled from "Trending positive" to "Inconclusive" with honest framing
+6. **Change size**: Dropped defensive "we tried breaking it up", replaced with "can split follow-up if interesting"
+7. **Disclosure**: Credits both Claude (Opus 4.6) and GPT-5.4 (codex)
+8. **Work log link**: Added for reviewers curious about the hardening process
+
+**Issue updated:** https://github.com/google-gemini/gemini-cli/issues/22877
+
+### transformation-design.md Updated (2026-03-18)
+
+Aligned spec with actual implementation after code review. 20 discrepancies identified, substantive ones fixed:
+
+1. **`_newMembers` → `_dirtyInputs`**: Renamed field, changed type from `Map<number, number[]>` (member IDs) to `Map<number, string[]>` (raw messages for summarization). Added explanation of why strings not IDs.
+2. **`embedQuery?` added to Embedder interface**: Optional method for non-mutating embedding. Documented corpus contamination prevention.
+3. **`resolveDirty()` concurrency guard**: Documented reference-equality check (`_dirtyInputs.get(root) === inputs`). Explained why array identity matters.
+4. **Constructor options object**: Spec showed positional params, code uses `ContextWindowOptions` interface.
+5. **`_pendingResolve` removed, `_graduatedIndex` added**: Spec had a field for tracking background work that was never implemented. Added the actual tracking field.
+6. **`nearestRoot()` and `getCentroid()`**: Added to Forest interface spec (used by `_graduate()`).
+7. **"zero blocking, zero staleness" → "summarization moved off the blocking path"**: Added caveats about stale summaries and overlap window duplicates.
+8. **TF-IDF known issues documented**: Unbounded vocab, IDF drift, dimension mismatch handling.
+9. **ClusterSummarizer prompt**: Updated to match simpler actual implementation.
+10. **Known limitations expanded**: 7 items now (was 3).
+11. **Review-Driven Hardening section added**: 5 fixes listed before success criteria.
+12. **Test count**: Updated to 62.
+13. **Design doc linked from issue #22877**.
+
+**Cosmetic discrepancies left as-is** (spec is pseudocode, not literal TypeScript):
+- snake_case vs camelCase in field/method names
+- `string | null` vs `string | undefined` for summary return type
+- Default parameter values in `nearest()`

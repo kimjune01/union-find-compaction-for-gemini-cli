@@ -42,14 +42,17 @@ ContextWindow
   ├─ append(content, timestamp)        ← synchronous, no LLM calls
   │     ├─ embed (local TF-IDF)
   │     ├─ push to hot zone
-  │     └─ _graduate() if hot exceeds capacity
-  │           ├─ insert into forest
-  │           ├─ union() with nearest cluster if similar
-  │           └─ union() closest pair if over hard cap
-  ├─ render(query?) → async            ← LLM calls happen HERE
-  │     ├─ resolve dirty clusters (batch summarization)
-  │     ├─ retrieve relevant clusters by query
+  │     └─ if hot exceeds graduateAt:
+  │           ├─ _graduate() oldest into forest (structural merge)
+  │           └─ graduated message stays in hot (overlap window)
+  │     └─ if hot exceeds evictAt:
+  │           └─ remove oldest from hot (summary is fresh by now)
+  ├─ render(query?)                    ← synchronous, uses cached summaries
+  │     ├─ retrieve relevant clusters by query (cached summaries)
   │     └─ return cold summaries + hot messages
+  ├─ resolveDirty()                    ← async, fire-and-forget
+  │     └─ batch-summarize dirty clusters (LLM calls)
+  │        called after render(), runs during main LLM call wait
   └─ Forest
       ├─ insert(msg_id, content, embedding, timestamp)
       ├─ find(msg_id) → root with path compression
@@ -62,17 +65,45 @@ ContextWindow
 
 **Flow:**
 1. Every message appends to ContextWindow (synchronous, <1ms)
-2. If hot exceeds capacity, oldest graduates to cold
-3. Graduated message merges into nearest cluster (or creates singleton)
-4. If cold exceeds cluster budget, closest pair merges structurally
+2. If hot exceeds `graduateAt`, oldest graduates to cold (structural merge, <1ms)
+3. Graduated message **stays in hot zone** (overlap window)
+4. If hot exceeds `evictAt`, oldest evicted from hot (summary is fresh by now)
 5. **No LLM calls during steps 1-4.** Merges are structural only.
-6. Render (async): resolve dirty clusters via batch summarization, then retrieve
+6. Render (synchronous, <1ms): retrieve clusters using cached summaries + hot messages
+7. After render: fire-and-forget `resolveDirty()` — runs during main LLM call wait
 
-**Batch summarization at render time:**
-For each dirty cluster, `render()` makes **one** LLM call:
+**Overlap window eliminates staleness:**
+Messages exist in both hot zone and cold tree for a few turns. During that
+overlap, background `resolveDirty()` runs during the main LLM call (5-30s).
+By the time a message evicts from hot, its cluster summary is fresh.
+
+```
+hot zone: [msg1 ... msg26, msg27, msg28, msg29, msg30]
+                           ↑ graduateAt     ↑ evictAt
+                           (enter tree)      (leave hot)
+
+msg27-msg30: overlap window — in BOTH hot and tree
+  - render() shows them verbatim from hot (no stale summary)
+  - background resolveDirty() summarizes their clusters
+  - by the time msg27 evicts from hot, its cluster summary is fresh
+```
+
+**Batch summarization (background):**
+`resolveDirty()` makes **one** LLM call per dirty cluster:
 `summarize([last_clean_summary, ...new_raw_messages_since_last_summary])`
 Each raw message appears in exactly one summarization call → O(n) total cost.
-With 10 clusters and 90 graduated messages: ~10 LLM calls, not 80.
+
+**Result: summarization moved off the blocking path.**
+- append(): <1ms (structural)
+- render(): <1ms (cached summaries, overlap covers freshness)
+- resolveDirty(): runs in background during main LLM wait (5-30s)
+
+**Caveats:**
+- If resolveDirty() hasn't completed before a message evicts from hot, its cluster
+  summary may be stale (showing raw root content instead of a proper summary).
+  The overlap window (4 messages ≈ 2 turns) is sized to make this unlikely.
+- Messages in the overlap window appear in both cold and hot render output.
+  The hot copy is authoritative; the cold copy may be a stale summary.
 
 ## What Changes
 
@@ -83,6 +114,10 @@ With 10 clusters and 90 graduated messages: ~10 LLM calls, not 80.
 ```typescript
 interface Embedder {
   embed(text: string): number[];  // synchronous — TF-IDF is local computation
+  embedQuery?(text: string): number[];  // optional — embed without mutating state
+  // embedQuery() prevents corpus contamination: render(query) must not
+  // change vocabulary/IDF, or searching would alter future embeddings.
+  // Falls back to embed() if not provided.
 }
 
 interface Summarizer {
@@ -103,64 +138,92 @@ class Forest {
   private _summaries: Map<number, string>;        // root_id → last clean summary
   private _children: Map<number, number[]>;       // root_id → member ids
   private _centroids: Map<number, number[]>;      // root_id → centroid
-  private _newMembers: Map<number, number[]>;     // root_id → member ids added since last clean summary
+  private _dirtyInputs: Map<number, string[]>;    // root_id → raw messages for next summarization
+  // _dirtyInputs stores the actual text to pass to the summarizer, not member IDs.
+  // On union: collects representations of both clusters (summaries or raw content).
+  // On resolveDirty: passes these strings to the summarizer, then clears.
   private _embedder: Embedder;
   private _summarizer: Summarizer;
 
   insert(msg_id: number, content: string, embedding?: number[], timestamp?: string): number;
   find(msg_id: number): number;  // with path compression
   union(id_a: number, id_b: number): number;  // SYNCHRONOUS — structural merge only
-  // union() merges parent pointers, children, centroids, and new-member lists.
+  // union() merges parent pointers, children, centroids.
   // It does NOT call the summarizer. No LLM calls. No async.
-  // The merged cluster's _newMembers accumulates all members that haven't
-  // been summarized yet. Summarization happens at render() time.
+  // Collects dirty inputs: for each side, uses its existing summary if clean,
+  // its dirty inputs if already dirty, or raw content if singleton.
+  // Creates a new array: [...inputsA, ...inputsB]. This array identity matters
+  // for the concurrency guard in resolveDirty() (see below).
   async resolveDirty(): Promise<void>;  // batch-summarize all dirty clusters
-  // For each cluster with non-empty _newMembers:
-  //   input = [last_clean_summary (if any), ...raw texts of _newMembers]
-  //   output = summarizer.summarize(input)
-  //   clears _newMembers, updates _summaries
-  compact(root_id: number): string;  // return summary (may be stale if dirty)
+  // For each dirty root:
+  //   1. Skip if root was consumed by a concurrent union() since snapshot
+  //   2. Summarize the dirty inputs
+  //   3. Only write summary if _dirtyInputs.get(root) === inputs (identity check)
+  //      If union() replaced the array during the await, skip — the combined
+  //      dirty entry will be resolved in a future resolveDirty() call.
+  // This reference-equality guard prevents stale summaries from overwriting
+  // combined inputs created by in-flight merges.
+  compact(root_id: number): string;  // return summary or raw content if singleton/dirty
   expand(root_id: number): string[];  // return source messages
-  nearest(query_embedding: number[], k: number, min_sim: number): number[];
+  nearest(query_embedding: number[], k?: number, min_sim?: number): number[];
+  nearestRoot(query_embedding: number[]): [number, number] | null;  // [root_id, similarity]
+  getCentroid(root_id: number): number[] | undefined;
 
   // Queries
   roots(): number[];
   members(root_id: number): number[];
-  summary(root_id: number): string | null;
-  isDirty(root_id: number): boolean;  // has unsummarized members
-  dirtyRoots(): number[];             // all roots with unsummarized members
+  summary(root_id: number): string | undefined;
+  isDirty(root_id: number): boolean;  // has unsummarized content
+  dirtyRoots(): number[];             // all roots with unsummarized content
   size(): number;
-  cluster_count(): number;
+  clusterCount(): number;
+}
+
+interface ContextWindowOptions {
+  graduateAt?: number;       // default 26 — start graduating at this hot count
+  evictAt?: number;          // default 30 — evict from hot at this count
+  maxColdClusters?: number;  // default 10
+  mergeThreshold?: number;   // default 0.15
 }
 
 class ContextWindow {
   private _forest: Forest;
-  private _hot: Message[];  // Fixed-size array (circular buffer or array)
-  private _hot_size: number;
-  private _max_cold_clusters: number;
-  private _merge_threshold: number;
-  private _next_id: number;
+  private _hot: Message[];
+  private _graduateAt: number;
+  private _evictAt: number;
+  private _maxColdClusters: number;
+  private _mergeThreshold: number;
+  private _nextId: number;
+  private _graduatedIndex: number;     // tracks which hot messages already graduated
 
   constructor(
     embedder: Embedder,
     summarizer: Summarizer,
-    hot_size: number = 20,
-    max_cold_clusters: number = 10,
-    merge_threshold: number = 0.15
+    options?: ContextWindowOptions
   );
+  // Constructor validates: evictAt must be >= graduateAt (else _graduatedIndex corrupts)
+  // overlap window = evictAt - graduateAt = 4 messages ≈ 2 turns
+  // gives background resolveDirty() time to finish during main LLM call
 
   append(content: string, timestamp?: string): number;  // SYNCHRONOUS — no LLM calls
   private _graduate(msg: Message): void;                 // SYNCHRONOUS — structural merge only
-  async render(query?: string, k?: number, min_sim?: number): Promise<string[]>;
-  // render() is async because it resolves dirty clusters via LLM batch summarization
-  // before retrieving. All LLM calls happen here, not in append() or _graduate().
+  render(query?: string | null, k?: number, minSim?: number): string[];
+  // render() is SYNCHRONOUS — uses cached summaries from forest.
+  // If query is provided, uses embedQuery() (not embed()) to avoid mutating
+  // the TF-IDF corpus. Falls back to embed() if embedQuery not available.
+  // Overlap window ensures graduated messages appear verbatim from hot.
+  // NOTE: messages in the overlap window may appear in both cold (via cluster
+  // summary) and hot (verbatim). This is by design — the hot copy is authoritative.
+  // After render(), caller fires resolveDirty() as background work.
+  async resolveDirty(): Promise<void>;  // fire-and-forget after render()
+  // Runs during main LLM call wait. Resolves dirty clusters via batch LLM calls.
   expand(root_id: number): string[];
 
   // Getters
-  hot_count(): number;
-  cold_cluster_count(): number;
-  total_messages(): number;
-  forest(): Forest;
+  get hotCount(): number;
+  get coldClusterCount(): number;
+  get totalMessages(): number;  // NOTE: double-counts overlap window messages
+  get forest(): Forest;
 }
 ```
 
@@ -189,9 +252,10 @@ async compactWithUnionFind(
 1. Get or create `ContextWindow` for this conversation
 2. For each message in chat history not yet in window:
    - Truncate tool outputs if needed
-   - `window.append(message.content, message.timestamp)` — synchronous, no LLM calls
-3. Render context: `await window.render(query=lastUserMessage)` — async, batch-summarizes dirty clusters
-4. Return rendered clusters + hot messages as new history
+   - `window.append(message.content, message.timestamp)` — synchronous, <1ms
+3. Render context: `window.render(query=lastUserMessage)` — synchronous, <1ms (cached summaries)
+4. Fire-and-forget: `window.resolveDirty()` — runs during main LLM call wait
+5. Return rendered clusters + hot messages as new history
 
 ### 3. New: Embedding Strategy
 
@@ -202,17 +266,33 @@ Two options, choose one:
 **Option A: TF-IDF (cheap, deterministic, local)**
 ```typescript
 class TFIDFEmbedder implements Embedder {
-  private vocabulary: Map<string, number>;
-  private idf: Map<string, number>;
+  private _vocab: Map<string, number>;
+  private _docCount: number;
+  private _termDocFreq: Map<string, number>;
 
-  embed(text: string): number[] {  // synchronous — local computation only
-    // Tokenize, compute TF, multiply by IDF, L2-normalize, return vector
+  embed(text: string): number[] {  // synchronous — mutates vocab/IDF state
+    // Tokenize, update vocabulary, update document frequency,
+    // compute TF-IDF, L2-normalize, return vector
+  }
+
+  embedQuery(text: string): number[] {  // synchronous — does NOT mutate state
+    // Same TF-IDF computation against current vocab, but skips
+    // vocabulary and IDF updates. Unknown terms get zero weight.
+    // Used by render(query) to prevent corpus contamination.
   }
 }
 ```
 
 **Pros:** No API calls, deterministic, fast
 **Cons:** Lexically shallow, poor semantic matching
+
+**Known issues with incremental TF-IDF:**
+- Vocabulary grows unboundedly (one dimension per unique term). Bounded in
+  practice by conversation length.
+- Old embeddings/centroids become stale as IDF shifts over time. Stored vectors
+  are never recomputed. Retrieval quality degrades over very long conversations.
+- `cosineSimilarity()` handles mismatched vector dimensions (older vectors are
+  shorter) by treating missing dimensions as zero.
 
 **Option B: Dense embeddings (better semantic matching, costs API)**
 ```typescript
@@ -262,15 +342,13 @@ class ClusterSummarizer implements Summarizer {
     return getResponseText(response)?.trim() ?? messages.join('\n---\n');
   }
 
-  private buildClusterPrompt(messages: string[]): string {
-    return `Summarize these ${messages.length} items into one dense paragraph (max 150 tokens).
-The first item may be a previous summary — integrate it with the new messages.
-Preserve all specific technical details: version numbers, ports, file paths, commands, function names, thresholds.
-Drop filler and acknowledgments.
-
-Items:
-${messages.map((m, i) => `[${i+1}] ${m}`).join('\n\n')}`;
-  }
+  // Prompt (actual implementation):
+  // "Summarize the following conversation messages into a concise,
+  //  information-dense paragraph. Preserve all specific technical details,
+  //  file paths, tool results, variable names, and user constraints.
+  //  Messages: [1] ... [2] ..."
+  // Simpler than originally specified. No explicit token limit or
+  // summary-integration instruction. Works because clusters are small.
 }
 ```
 
@@ -728,12 +806,12 @@ expect(ufRecall).toBeGreaterThan(flatRecall);
 ```typescript
 interface PerformanceMetrics {
   // UX
-  appendP95Ms: number;           // union-find: <1ms, flat: N/A (doesn't append)
-  renderP95Ms: number;           // union-find: LLM batch time, flat: N/A
+  appendP95Ms: number;           // union-find: <1ms (synchronous, no LLM)
+  renderP95Ms: number;           // union-find: <1ms (cached summaries)
   blockingTimeMs: number;        // flat only: 10000-30000ms compression event
 
   // Cost
-  llmCallCount: number;          // Flat: 2 per event, UF v2: ~10 per render
+  llmCallCount: number;          // Flat: 2 per event, UF v2: ~67 (background)
   totalInputTokens: number;      // Sum across all LLM calls
   totalOutputTokens: number;
 
@@ -746,17 +824,11 @@ interface PerformanceMetrics {
 
 **Tests:**
 ```typescript
-test('union-find append is synchronous and fast', () => {
-  const start = Date.now();
-  ufCompression.append(message);  // synchronous — no await needed
-  const latency = Date.now() - start;
-
-  expect(latency).toBeLessThan(100);  // <100ms per append (local computation only)
-});
-
-test('union-find append never calls summarizer', () => {
+test('append is synchronous and never calls summarizer', () => {
   const summarizer = { summarize: vi.fn() };
-  const cw = new ContextWindow(embedder, summarizer, { hotSize: 2 });
+  const cw = new ContextWindow(embedder, summarizer, {
+    graduateAt: 2, evictAt: 4
+  });
 
   cw.append('msg1');
   cw.append('msg2');
@@ -765,33 +837,63 @@ test('union-find append never calls summarizer', () => {
   expect(summarizer.summarize).not.toHaveBeenCalled();
 });
 
-test('render resolves dirty clusters via batch summarization', async () => {
-  // Append enough messages to create dirty clusters
+test('render is synchronous and uses cached summaries', () => {
+  // Append enough to graduate and merge
+  for (let i = 0; i < 10; i++) cw.append(`msg${i}`);
+
+  const start = Date.now();
+  const rendered = cw.render('query');  // synchronous — no await
+  const latency = Date.now() - start;
+
+  expect(latency).toBeLessThan(10);  // <10ms (no LLM calls)
+  expect(rendered.length).toBeGreaterThan(0);
+});
+
+test('resolveDirty batch-summarizes dirty clusters', async () => {
   for (let i = 0; i < 50; i++) cw.append(`msg${i}`);
 
-  // No LLM calls yet
   expect(summarizer.summarize).not.toHaveBeenCalled();
 
-  // Render triggers batch summarization
-  await cw.render('query');
+  await cw.resolveDirty();
 
   // ~10 calls (one per dirty cluster), not 80 (one per merge)
   expect(summarizer.summarize.mock.calls.length).toBeLessThanOrEqual(15);
 });
 
-test('cost comparison for 200-message conversation', async () => {
-  const flatMetrics = await measureCompressionCost(flatStrategy, conversation);
-  const ufMetrics = await measureCompressionCost(ufStrategy, conversation);
+test('overlap window: graduated messages still in hot', () => {
+  const cw = new ContextWindow(embedder, summarizer, {
+    graduateAt: 3, evictAt: 5
+  });
+  for (let i = 0; i < 4; i++) cw.append(`msg${i}`);
 
-  // Union-find v2 should be comparable, not 26x like v1
-  expect(ufMetrics.totalInputTokens).toBeLessThan(flatMetrics.totalInputTokens * 2);
+  // msg0 graduated but still in hot (overlap window)
+  expect(cw.hotCount).toBe(4);
+  expect(cw.coldClusterCount).toBe(1);
+
+  const rendered = cw.render();
+  // msg0 appears from hot zone (verbatim), not from stale cold summary
+  expect(rendered).toContain('msg0');
 });
 ```
+
+### Review-Driven Hardening
+
+After implementation, a code review (GPT-5.4) identified 10 issues. 5 were fixed:
+
+1. **Embedding dimension mismatch → NaN** (HIGH): `cosineSimilarity()` and centroid merging now handle mismatched vector lengths (TF-IDF vocabulary grows, making newer vectors longer than older ones).
+2. **`resolveDirty()` race condition** (HIGH): Replaced `_dirtyInputs.clear()` with per-entry deletion and reference-equality guard. If `union()` modifies a cluster during async summarization, the stale result is discarded.
+3. **Render query corpus contamination** (HIGH): Added `embedQuery()` to `Embedder` interface. `render(query)` uses it to avoid mutating TF-IDF state.
+4. **In-flight merge during summarization** (HIGH): If a root is merged while its summary is in flight, the summary is safely skipped via `_dirtyInputs.get(root) === inputs` identity check.
+5. **Config validation** (MEDIUM): Constructor rejects `evictAt < graduateAt`.
+
+5 documented as known limitations (see above).
+
+Full details in [WORK_LOG.md](WORK_LOG.md).
 
 ### Success Criteria for Spike
 
 **Spike passes if:**
-1. ✅ **Correctness tests pass** - Unit tests green
+1. ✅ **Correctness tests pass** - 62 tests green across 4 test files
 2. ✅ **Behavior tests pass** - Integration tests green, backward compat verified
 3. ✅ **Recall improvement** - Union-find **≥ flat with statistical significance** (McNemar's test, p < 0.05)
 4. ✅ **Non-blocking UX** - Append latency < 100ms
@@ -816,8 +918,12 @@ test('cost comparison for 200-message conversation', async () => {
 
 **Known limitations (deferred to future):**
 - Message edits not supported
-- Concurrency not handled (assumes sequential processing)
-- Cache eviction at 1000 messages (evict sources, keep summaries)
+- Cache eviction at 1000 messages not yet implemented (design doc specifies it, code omits it — `_nodes` map grows unboundedly)
+- Unbounded TF-IDF vocabulary — `_vocab` and `_termDocFreq` grow without bound
+- IDF drift — old embeddings/centroids stale as corpus evolves, never recomputed
+- `totalMessages` double-counts messages in the overlap window
+- `AbortSignal` not propagated — `ClusterSummarizer` creates a detached controller per call; user cancellation doesn't stop background summarization
+- Overlap window renders messages in both cold (cluster summary) and hot (verbatim) — no deduplication
 
 **See DESIGN_DECISIONS.md for complete rationale and iteration triggers.**
 
