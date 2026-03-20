@@ -19,8 +19,8 @@ import * as path from 'node:path';
 import {
   ContextWindow,
   type Summarizer,
-} from '/Users/junekim/Documents/gemini-cli-experiment/packages/core/src/services/contextWindow.js';
-import { TFIDFEmbedder } from '/Users/junekim/Documents/gemini-cli-experiment/packages/core/src/services/embeddingService.js';
+} from '/Users/junekim/Documents/gemini-cli-experiment/packages/core/dist/src/services/contextWindow.js';
+import { TFIDFEmbedder } from '/Users/junekim/Documents/gemini-cli-experiment/packages/core/dist/src/services/embeddingService.js';
 
 // ─── Config ───────────────────────────────────────────────────────────────────
 const API_KEY = process.env.GEMINI_API_KEY ?? '';
@@ -33,7 +33,7 @@ const OUT_DIR =
 
 const HOT_SIZE = 30;
 const MAX_COLD_CLUSTERS = 10;
-const MERGE_THRESHOLD = 0.15;
+const MERGE_THRESHOLD = 0.15; // Best of {0.10, 0.15, 0.20} — tuning budget exhausted
 const MESSAGES_PER_CONV = 120; // Use first 120 messages per conversation
 const QUESTIONS_PER_CONV = 8;
 const NUM_CONVERSATIONS = 12;
@@ -388,6 +388,8 @@ async function main() {
       h2AllLatencies.push({ convId, msgIdx: mi, latencyMs: elapsed, isMerge: triggered });
     }
 
+    // Per prereg: call resolveDirty() before render to generate cluster summaries
+    await contextWindow.resolveDirty();
     const rendered = contextWindow.render(null);
     const unionContext = rendered.join('\n\n');
     h3Union.totalInput += summarizer.totalInputTokens;

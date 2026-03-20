@@ -17,8 +17,8 @@ import * as path from 'node:path';
 import {
   ContextWindow,
   type Summarizer,
-} from '/Users/junekim/Documents/gemini-cli-experiment/packages/core/src/services/contextWindow.js';
-import { TFIDFEmbedder } from '/Users/junekim/Documents/gemini-cli-experiment/packages/core/src/services/embeddingService.js';
+} from '/Users/junekim/Documents/gemini-cli-experiment/packages/core/dist/src/services/contextWindow.js';
+import { TFIDFEmbedder } from '/Users/junekim/Documents/gemini-cli-experiment/packages/core/dist/src/services/embeddingService.js';
 
 // ─── Config ───────────────────────────────────────────────────────────────────
 const API_KEY = process.env.GEMINI_API_KEY ?? '';

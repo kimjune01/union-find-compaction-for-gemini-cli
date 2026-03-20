@@ -18,8 +18,8 @@ import {
   ContextWindow,
   type Summarizer,
   type Embedder,
-} from '/Users/junekim/Documents/gemini-cli-experiment/packages/core/src/services/contextWindow.js';
-import { TFIDFEmbedder } from '/Users/junekim/Documents/gemini-cli-experiment/packages/core/src/services/embeddingService.js';
+} from '/Users/junekim/Documents/gemini-cli-experiment/packages/core/dist/src/services/contextWindow.js';
+import { TFIDFEmbedder } from '/Users/junekim/Documents/gemini-cli-experiment/packages/core/dist/src/services/embeddingService.js';
 
 // -- Mock summarizer that tracks call count --
 class MockSummarizer implements Summarizer {
