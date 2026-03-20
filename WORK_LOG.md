@@ -1340,3 +1340,52 @@ Aligned spec with actual implementation after code review. 20 discrepancies iden
 3. `cc8e2e2` — fix(core): harden union-find compaction after code review
 
 The third commit is the one reviewers should look at most carefully — it's where the subtle bugs live and the fixes are well-commented.
+
+## 2026-03-19: Blind, Blind, Merge
+
+### New implementation methodology
+
+Scrapped the single-agent implementation. Built a new one using [blind, blind, merge](https://june.kim/blind-blind-merge):
+
+1. Gave the same three inputs (existing source, prose spec, Python prototype) plus an authority rule ("no regressions, UX improvement") to two LLMs independently
+2. GPT-5.4 (Codex) built better architecture: persistent ContextWindow on GeminiChat, config-driven tuning, rich Content serialization, query-aware retrieval
+3. Claude Opus 4.6 built better defensive patterns: per-cluster error recovery, timestamp preservation, original Content objects for hot messages
+4. Neither shipped alone. Synthesized the best of both, then absorbed error handling from the original pipeline.
+5. Fresh reviewer ranked the synthesis closest to production.
+
+Blog post: https://june.kim/blind-blind-merge
+
+### Evidence repos
+- Synthesis: `kimjune01/gemini-cli:feat/union-find-compaction-v2` (commit `04d6451d9`, later `e6b7a1146`)
+- Codex blind: https://github.com/kimjune01/gemini-cli-codex
+- Claude blind: https://github.com/kimjune01/gemini-cli-claude
+
+### Preregistration v3
+
+Filed `PREREGISTRATION-V3.md` documenting the blind-blind-merge methodology. Hypotheses unchanged from v2.
+
+### Experiment results (v3)
+
+| Hypothesis | Criterion | Measured | Result |
+|---|---|---|---|
+| H1 (Recall) | ≥ flat + 5pp, p<0.05 | +7.3pp, p=0.286 | FAIL (underpowered) |
+| H2 (Latency) | p95 < 100ms | p95 = 0.3ms | PASS |
+| H3 (Cost) | ≤ 2x flat | 0.79x | PASS |
+
+Measurement bug found and fixed: harness wasn't calling `resolveDirty()` before scoring. First run showed 0 LLM calls for union-find — was testing unsummarized raw content.
+
+Tuning budget (2 changes): merge threshold 0.10 and 0.20 both worse than baseline 0.15. Budget exhausted, result accepted.
+
+### PR review (codex as reviewer)
+
+Found three issues the experiment didn't catch:
+
+1. **State loss (blocker)**: `setHistory()` cleared the ContextWindow after compression. Fixed: window now survives `setHistory()`, only clears on `clearHistory()`.
+2. **Flat truncation change (major)**: PR accidentally modified flat compression path. Not fixed here — handled by separate fix PR #23066.
+3. **Abort signal (major)**: `resolveDirty()` ignored cancellation, background LLM calls kept spending tokens. Fixed: abort signal threaded from `compactWithUnionFind()` through `resolveDirty()` into `ClusterSummarizer.summarize()`.
+
+73 tests passing after fixes. Pushed to `feat/union-find-compaction-v2` (commit `e6b7a1146`).
+
+### Key insight
+
+The authority rule ("no regressions, UX improvement") displaced 15 design decisions with one sentence. Different models fail on different sides of the same boundary — structural diversity, not stochastic. The synthesis couldn't exist without both blind implementations. See the [parts bin](/the-parts-bin) Attend grid: this is a portfolio solver with different models instead of different seeds, and a merge instead of a selection.
