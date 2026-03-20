@@ -1386,6 +1386,10 @@ Found three issues the experiment didn't catch:
 
 73 tests passing after fixes. Pushed to `feat/union-find-compaction-v2` (commit `e6b7a1146`).
 
+### Dependency note
+
+The union-find PR (`feat/union-find-compaction-v2`) is based on upstream `main` before #23066 (the flat compression fix PR). If #23066 merges first, the union-find branch will conflict on `chatCompressionService.ts`. In that case: rebase onto the merged main and re-run blind-blind-merge on the updated ground truth. The spec and prototype don't change — only the ground truth input does.
+
 ### Key insight
 
 The authority rule ("no regressions, UX improvement") displaced 15 design decisions with one sentence. Different models fail on different sides of the same boundary — structural diversity, not stochastic. The synthesis couldn't exist without both blind implementations. See the [parts bin](/the-parts-bin) Attend grid: this is a portfolio solver with different models instead of different seeds, and a merge instead of a selection.
