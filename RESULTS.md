@@ -381,17 +381,18 @@ Both tuning changes made recall worse. Baseline (0.15) was optimal.
 
 ---
 
-## Comparison: v1 → v3
+## Fixing the broken union-find (v1 → v3)
 
-| Metric | v1 | v3 | Change |
+v1 union-find was broken: synchronous LLM calls in `union()` caused 3.4s latency and 26.6x cost. These numbers measure *how broken v1 was*, not how good union-find is vs flat.
+
+| Metric | v1 (broken) | v3 (fixed) | What changed |
 |---|---|---|---|
-| H1 Recall diff | +7.3pp | +7.3pp | Same effect |
-| H1 p-value | 0.169 | 0.286 | Worse (different question generation) |
-| H2 p95 latency | 3,416ms | 0.3ms | **11,000x improvement** |
-| H3 cost ratio | 26.6x | 0.79x | **34x improvement** |
-| LLM calls per conversation | 80 | ~2.7 | **30x fewer** |
+| H2 p95 latency | 3,416ms | 0.3ms | Summarization moved to async `resolveDirty()` |
+| H3 cost ratio vs flat | 26.6x | 0.79x | Batch summarization instead of per-merge |
+| LLM calls per conversation | 80 | ~2.7 | Structural merge only, deferred summarization |
+| H1 Recall diff vs flat | +7.3pp | +7.3pp | Recall signal unchanged by the fix |
 
-The architectural fix (async resolveDirty) solved both v1 failures (H2, H3) while preserving the recall signal.
+The fix validated the architecture. The comparison against flat is in the sections above.
 
 ---
 
