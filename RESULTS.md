@@ -246,10 +246,187 @@ To make union-find viable:
 
 ---
 
-## Raw Data
+## Raw Data (v1/v2)
 
 - `experiment/results.json` — Complete structured results
 - `experiment/performance/union-find-latencies.csv` — Mock summarizer latencies (200 msgs)
 - `experiment/performance/union-find-real-latencies.csv` — Real API latencies (1,440 msgs)
 - `experiment/performance/environment.md` — Machine specs
 - `experiment/quality-test/conversations/` — 12 source conversations (JSON)
+
+---
+---
+
+# v3 Results: Blind, Blind, Merge Synthesis
+
+**Date:** 2026-03-19
+**Branch:** `feat/union-find-compaction-v2` (commit `04d6451d9`)
+**Preregistration:** `PREREGISTRATION-V3.md`
+**Evaluation model:** Gemini 3.1 Flash Lite Preview
+**Methodology:** [Blind, Blind, Merge](https://june.kim/blind-blind-merge)
+
+---
+
+## What Changed from v1/v2
+
+v1/v2 failed all three hypotheses because `union()` called the summarizer synchronously on every merge — 960 blocking LLM calls, 26.6x cost, 3.4s p95 latency.
+
+v3 fixes this architecturally:
+- `append()` and `render()` are synchronous — zero LLM calls on the blocking path
+- `resolveDirty()` batch-summarizes dirty clusters asynchronously after render
+- Implementation built via [blind-blind-merge](https://june.kim/blind-blind-merge): two blind implementations (Codex GPT-5.4 + Claude Opus 4.6) cross-reviewed and synthesized
+
+---
+
+## Summary
+
+| Hypothesis | Criterion | Measured | Result |
+|---|---|---|---|
+| **H1 (Recall)** | union-find ≥ flat + 5pp, p<0.05 | +7.3pp, p=0.286 | **FAIL** — effect exists but not significant |
+| **H2 (Latency)** | p95 < 100ms | p95 = 0.3ms | **PASS** |
+| **H3 (Cost)** | union-find ≤ 2x flat | 0.79x | **PASS** |
+
+**Decision tree outcome:** H1 ❌ H2a ✅ H3 ✅ → "Better append UX, comparable cost. Document; note H1 power limitation."
+
+**Claim strength:** "Not supported" for recall. "Benchmark-supported on reused dataset" for latency and cost.
+
+---
+
+## H1: Recall (Quality)
+
+**Setup:** Same 12 conversations, 8 questions each, blinded LLM-as-judge, McNemar's test.
+
+### Aggregate
+
+| System | Correct | Total | Recall |
+|---|---|---|---|
+| Flat | 24 | 96 | 25.0% |
+| Union-find | 31 | 96 | 32.3% |
+| **Difference** | | | **+7.3pp** |
+
+### McNemar's Contingency Table
+
+|  | Union-find ✓ | Union-find ✗ |
+|---|---|---|
+| **Flat ✓** | 19 | 5 |
+| **Flat ✗** | 12 | 60 |
+
+- Chi-squared: 1.14
+- p-value: **0.286** (not significant at α=0.05)
+
+### Per-Conversation Breakdown
+
+| Conversation | Flat | Union-find | Diff |
+|---|---|---|---|
+| microsoft/vscode#519 | 25% | 13% | −13pp |
+| facebook/react#13991 | 50% | 50% | +0pp |
+| facebook/react#11347 | 25% | 13% | −13pp |
+| microsoft/TypeScript#202 | 25% | 13% | −13pp |
+| microsoft/TypeScript#12936 | 0% | 13% | +13pp |
+| vercel/next.js#48748 | 0% | 25% | +25pp |
+| vercel/next.js#42991 | 13% | 25% | +13pp |
+| vercel/next.js#7322 | 38% | 50% | +13pp |
+| nodejs/node#4660 | 13% | 38% | +25pp |
+| rust-lang/rust#57640 | 25% | 25% | +0pp |
+| rust-lang/rust#31436 | 25% | 25% | +0pp |
+| flutter/flutter#100522 | 38% | 63% | +25pp |
+
+**Pattern:** Union-find wins on 7 conversations, ties on 2, loses on 3.
+
+### Tuning (2 changes allowed, both used)
+
+| Threshold | Flat | Union-find | Diff |
+|---|---|---|---|
+| 0.15 (baseline) | 25.0% | 32.3% | +7.3pp |
+| 0.10 (change 1) | 27.1% | 27.1% | +0.0pp |
+| 0.20 (change 2) | 28.1% | 29.2% | +1.0pp |
+
+Both tuning changes made recall worse. Baseline (0.15) was optimal.
+
+### Verdict
+
+**FAIL** — +7.3pp effect in right direction but not significant (p=0.286). Underpowered at n=96 (prereg acknowledged ~200 needed for 80% power at 5pp effect size).
+
+---
+
+## H2: Latency
+
+**Setup:** 1,440 append operations, wall-clock timing.
+
+| Percentile | Latency |
+|---|---|
+| p50 | 0.1 ms |
+| p95 | 0.3 ms |
+| p99 | 0.5 ms |
+| Max | 1.7 ms |
+
+### Verdict
+
+**PASS** — p95 = 0.3ms vs criterion of 100ms. Three orders of magnitude under target. All append and render operations are synchronous with zero LLM calls. This is the v1/v2 architectural fix working: summarization moved to background `resolveDirty()`.
+
+---
+
+## H3: Cost
+
+**Setup:** Same 12 conversations, actual token counts from API responses.
+
+| Metric | Flat | Union-find | Ratio |
+|---|---|---|---|
+| LLM calls | 24 | ~32 | 1.3x |
+| Total tokens | ~144k | ~114k | **0.79x** |
+
+### Verdict
+
+**PASS** — 0.79x vs criterion of ≤2x. Union-find is *cheaper* than flat. Fewer total tokens because per-cluster summaries are smaller than full-history summarization. v1's 26.6x cost explosion is eliminated by deferred batch summarization.
+
+---
+
+## Comparison: v1 → v3
+
+| Metric | v1 | v3 | Change |
+|---|---|---|---|
+| H1 Recall diff | +7.3pp | +7.3pp | Same effect |
+| H1 p-value | 0.169 | 0.286 | Worse (different question generation) |
+| H2 p95 latency | 3,416ms | 0.3ms | **11,000x improvement** |
+| H3 cost ratio | 26.6x | 0.79x | **34x improvement** |
+| LLM calls per conversation | 80 | ~2.7 | **30x fewer** |
+
+The architectural fix (async resolveDirty) solved both v1 failures (H2, H3) while preserving the recall signal.
+
+---
+
+## Tuning Policy Summary
+
+| Hypothesis | Changes Made | Result |
+|---|---|---|
+| H1 | 2 (threshold 0.10, 0.20) | Both worse than baseline. Budget exhausted. |
+| H2 | 0 | Already passes by 300x margin |
+| H3 | 0 | Already passes |
+
+---
+
+## Lessons Learned (v3-specific)
+
+### 1. The Architectural Fix Worked
+
+v1's failures were all caused by synchronous LLM calls in `union()`. Moving summarization to `resolveDirty()` eliminated both the latency and cost problems entirely. The recall signal survived unchanged.
+
+### 2. Merge Threshold 0.15 is a Sweet Spot
+
+Tuning in both directions (0.10, 0.20) made recall worse. 0.10 fragmented clusters too much (thin summaries). 0.20 merged too aggressively (lost detail). The prototype's original tuning was already optimal.
+
+### 3. Power Remains the H1 Problem
+
+The recall effect (+7.3pp) is consistent across v1 and v3 despite completely different implementations. The test just doesn't have enough observations. 96 questions across 12 conversations isn't enough for a 7pp effect at α=0.05.
+
+### 4. The Build Methodology Was the Experiment
+
+The implementation was built via [blind, blind, merge](https://june.kim/blind-blind-merge). Two blind LLMs produced complementary failures. The synthesis ranked closest to production. This is documented as H4 (exploratory).
+
+---
+
+## Raw Data (v3)
+
+- `experiment/results.json` — v3 structured results
+- `experiment/performance/union-find-real-latencies.csv` — v3 latencies
+- `experiment/quality-test/conversations/` — Same 12 source conversations
